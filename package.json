@@ -1,7 +1,7 @@
 {
   "name": "@yeastcloud/dsh-anchor",
   "description": "定锚（Anchor）· DeepSeek Harness 会话指令定锚插件：为新会话注入一段可自由组合的指令，并在会话被压缩或过长后自动重锚同一段原文，避免人设与规则被挤出上下文。",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "type": "module",
   "packageManager": "pnpm@11.21.0",
   "main": "lib/index.js",
