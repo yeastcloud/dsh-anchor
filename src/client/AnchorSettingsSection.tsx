@@ -6,8 +6,14 @@
  *    and one checkbox per preset (the opening prompt is a COMBINATION now);
  *  - the pager row, which also owns the add button;
  *  - the injection order: the selected presets, reorderable by drag or ↑/↓.
+ *
+ * Every visible string comes from the slot-injected `t` seat (namespace
+ * `settings.anchor`), so the page follows the active DSH locale. Terms the copy
+ * emphasizes keep their own keys (`introAnchor`, `hintFirst`, …) because each
+ * renders inside its own emphasis element.
  */
 
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   MAX_REINJECT_TURN_INTERVAL,
@@ -61,6 +67,7 @@ function firstLine(text: string): string {
 
 interface Props {
   controller: AnchorSettingsController
+  t: TranslateNS<'settings.anchor'>
 }
 
 interface DragState {
@@ -68,7 +75,7 @@ interface DragState {
   over?: { id: string; half: 'before' | 'after' }
 }
 
-export function AnchorSettingsSection({ controller }: Props): React.ReactElement {
+export function AnchorSettingsSection({ controller, t }: Props): React.ReactElement {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
   const { settings, status, writable, saving, error } = snapshot
 
@@ -130,10 +137,10 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
     <div className={css.section}>
       <div className={css.heading}>
         <div>
-          <h2 className={css.title}>定锚 · 会话指令注入</h2>
+          <h2 className={css.title}>{t('title')}</h2>
           <p className={css.intro}>
-            给每个新会话<strong>定锚</strong>：把勾选的预设按下面的顺序拼成一段指令注入；
-            会话被压缩或过长后会<strong>重锚</strong>同一段原文。关闭总开关则暂停全部注入。
+            {t('introLead')}<strong>{t('introAnchor')}</strong>{t('introMid')}
+            <strong>{t('introReanchor')}</strong>{t('introTail')}
           </p>
         </div>
         <div className={css.headingActions}>
@@ -142,10 +149,10 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             className={css.secondaryButton}
             disabled={saving}
             onClick={() => {
-              if (window.confirm('恢复为默认设置？当前预设、组合与重锚策略都会被覆盖。')) controller.resetToDefaults()
+              if (window.confirm(t('resetConfirm'))) controller.resetToDefaults()
             }}
           >
-            恢复默认
+            {t('reset')}
           </button>
         </div>
       </div>
@@ -158,10 +165,8 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
           onChange={(event) => controller.setEnabled(event.target.checked)}
         />
         <span className={css.behaviorCopy}>
-          <strong className={css.behaviorTitle}>启用注入</strong>
-          <span className={css.behaviorDescription}>
-            总开关：关闭后定锚与重锚全部停止，设置与组合保留。
-          </span>
+          <strong className={css.behaviorTitle}>{t('enabledTitle')}</strong>
+          <span className={css.behaviorDescription}>{t('enabledDescription')}</span>
         </span>
       </label>
 
@@ -174,19 +179,15 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             onChange={(event) => controller.setReinjectAfterCompaction(event.target.checked)}
           />
           <span className={css.behaviorCopy}>
-            <strong className={css.behaviorTitle}>压缩后自动重锚</strong>
-            <span className={css.behaviorDescription}>
-              会话被压缩（自动触发或 /compact）后，在下一次模型请求前把锚文原样重锚一次。
-            </span>
+            <strong className={css.behaviorTitle}>{t('reinjectTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('reinjectDescription')}</span>
           </span>
         </label>
 
         <div className={css.intervalRow}>
           <span className={css.behaviorCopy}>
-            <strong className={css.behaviorTitle}>按轮数重锚</strong>
-            <span className={css.behaviorDescription}>
-              距上次定锚满 N 轮后，在下一轮开始时再重锚一次；填 0 关闭。
-            </span>
+            <strong className={css.behaviorTitle}>{t('turnIntervalTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('turnIntervalDescription')}</span>
           </span>
           <input
             type="number"
@@ -195,27 +196,24 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             max={MAX_REINJECT_TURN_INTERVAL}
             step={1}
             value={settings.reinjectTurnInterval}
-            aria-label="重锚轮数间隔"
+            aria-label={t('turnIntervalAria')}
             onChange={(event) => controller.setReinjectTurnInterval(Number(event.target.value))}
           />
         </div>
 
         <div className={css.intervalRow}>
           <span className={css.behaviorCopy}>
-            <strong className={css.behaviorTitle}>重锚取哪一条</strong>
-            <span className={css.behaviorDescription}>
-              重锚重复哪一条：「定锚原文」= 永远重复会话开头那条；「最近一条」= 重复本插件最近一次注入
-              （用 `/anchor` 定锚的那条也在此列，等于在本会话把人设换掉）。
-            </span>
+            <strong className={css.behaviorTitle}>{t('reinjectSourceTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('reinjectSourceDescription')}</span>
           </span>
-          <span className={css.tabs} role="group" aria-label="重锚来源">
+          <span className={css.tabs} role="group" aria-label={t('reinjectSourceAria')}>
             <button
               type="button"
               className={settings.reinjectSource === 'first' ? css.tabActive : css.tab}
               aria-pressed={settings.reinjectSource === 'first'}
               onClick={() => controller.setReinjectSource('first')}
             >
-              定锚原文
+              {t('reinjectFirst')}
             </button>
             <button
               type="button"
@@ -223,17 +221,15 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
               aria-pressed={settings.reinjectSource === 'latest'}
               onClick={() => controller.setReinjectSource('latest')}
             >
-              最近一条
+              {t('reinjectLatest')}
             </button>
           </span>
         </div>
 
         <div className={css.intervalRow}>
           <span className={css.behaviorCopy}>
-            <strong className={css.behaviorTitle}>单条上限</strong>
-            <span className={css.behaviorDescription}>
-              编辑器里单条预设最多可输入的字数。已存在的长预设不会被自动截断。
-            </span>
+            <strong className={css.behaviorTitle}>{t('maxPromptTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('maxPromptDescription')}</span>
           </span>
           <input
             type="number"
@@ -242,17 +238,15 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             max={MAX_TEXT_LIMIT}
             step={100}
             value={settings.maxPromptChars}
-            aria-label="单条上限字数"
+            aria-label={t('maxPromptAria')}
             onChange={(event) => controller.setMaxPromptChars(Number(event.target.value))}
           />
         </div>
 
         <div className={css.intervalRow}>
           <span className={css.behaviorCopy}>
-            <strong className={css.behaviorTitle}>合并上限</strong>
-            <span className={css.behaviorDescription}>
-              组合拼接后的总字数上限；超限则定锚与重锚都不注入，并写入日志。
-            </span>
+            <strong className={css.behaviorTitle}>{t('maxCombinedTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('maxCombinedDescription')}</span>
           </span>
           <input
             type="number"
@@ -261,30 +255,27 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             max={MAX_TEXT_LIMIT}
             step={100}
             value={settings.maxCombinedChars}
-            aria-label="合并上限字数"
+            aria-label={t('maxCombinedAria')}
             onChange={(event) => controller.setMaxCombinedChars(Number(event.target.value))}
           />
         </div>
 
         <p className={css.hint}>
-          重锚重复的是上面「重锚取哪一条」选定的那一条：选<strong>「定锚原文」</strong>时永远是本次会话开头那段
-          （从会话记录里取回，改组合只影响下一个新会话）；选<strong>「最近一条」</strong>时是本插件最近一次注入——
-          用 /anchor 把改好的组合定进来，就会在本次会话内换掉重锚内容。
+          {t('hintLead')}<strong>{t('hintFirst')}</strong>{t('hintMid')}
+          <strong>{t('hintLatest')}</strong>{t('hintTail')}
         </p>
       </div>
 
-      {status === 'loading' ? <p className={css.statusLine}>正在读取设置…</p> : null}
-      {!writable && status !== 'loading' ? (
-        <p className={css.notice}>设置存储不可写：本次修改只在当前页面内生效。</p>
-      ) : null}
+      {status === 'loading' ? <p className={css.statusLine}>{t('loading')}</p> : null}
+      {!writable && status !== 'loading' ? <p className={css.notice}>{t('readOnly')}</p> : null}
       {error !== undefined ? (
         <p className={css.error} role="alert">
-          保存失败：{error}
+          {t('saveFailed', { message: error })}
         </p>
       ) : null}
       {saving ? (
         <p className={css.statusLine} role="status">
-          正在保存…
+          {t('saving')}
         </p>
       ) : null}
 
@@ -294,8 +285,8 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             className={css.textInput}
             value={newName}
             autoFocus
-            placeholder="预设名称，例如：中文简洁"
-            aria-label="新预设名称"
+            placeholder={t('newNamePlaceholder')}
+            aria-label={t('newNameAria')}
             onChange={(event) => setNewName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') setAdding(false)
@@ -306,19 +297,19 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             value={newText}
             rows={3}
             maxLength={settings.maxPromptChars}
-            placeholder="注入给模型的提示词正文，例如：请用中文回答，所有代码先给最小可运行版本。"
-            aria-label="新预设内容"
+            placeholder={t('newTextPlaceholder')}
+            aria-label={t('newTextAria')}
             onChange={(event) => setNewText(event.target.value)}
           />
           <div className={css.rowActions}>
             <span className={css.charCount}>
-              {newText.length} / {settings.maxPromptChars} 字
+              {t('charCount', { used: newText.length, max: settings.maxPromptChars })}
             </span>
             <button type="button" className={css.primaryButton} onClick={saveAdd}>
-              添加
+              {t('add')}
             </button>
             <button type="button" className={css.secondaryButton} onClick={() => setAdding(false)}>
-              取消
+              {t('cancel')}
             </button>
           </div>
         </div>
@@ -331,22 +322,20 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             type="checkbox"
             className={css.checkbox}
             checked={selectionEmpty}
-            aria-label="不注入任何内容"
+            aria-label={t('noneAria')}
             onChange={() => controller.clearSelection()}
           />
           <div className={css.promptMain}>
-            <span className={css.promptName}>不注入</span>
-            <p className={css.promptText}>
-              新会话不定锚（已有会话的压缩/轮数重锚不受影响）。选它会清空下面的组合。
-            </p>
+            <span className={css.promptName}>{t('noneName')}</span>
+            <p className={css.promptText}>{t('noneDescription')}</p>
           </div>
-          {selectionEmpty ? <span className={css.badge}>已选</span> : null}
+          {selectionEmpty ? <span className={css.badge}>{t('selected')}</span> : null}
         </li>
 
         {prompts.length === 0 ? (
           <li>
             <p className={css.empty} style={{ margin: 0 }}>
-              还没有预设。点击「＋ 新增预设」创建第一条。
+              {t('emptyLibrary')}
             </p>
           </li>
         ) : null}
@@ -361,7 +350,7 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                 type="checkbox"
                 className={css.checkbox}
                 checked={isSelected}
-                aria-label={`把预设「${prompt.name}」加入定锚组合`}
+                aria-label={t('joinAria', { name: prompt.name })}
                 onChange={() => controller.togglePrompt(prompt.id)}
               />
               {isEditing ? (
@@ -370,7 +359,7 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                     className={css.textInput}
                     value={editing.name}
                     autoFocus
-                    aria-label="预设名称"
+                    aria-label={t('editNameAria')}
                     onChange={(event) => setEditing({ ...editing, name: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') saveEdit()
@@ -382,18 +371,18 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                     value={editing.text}
                     rows={3}
                     maxLength={settings.maxPromptChars}
-                    aria-label="预设内容"
+                    aria-label={t('editTextAria')}
                     onChange={(event) => setEditing({ ...editing, text: event.target.value })}
                   />
                   <div className={css.rowActions}>
                     <span className={css.charCount}>
-                      {editing.text.length} / {settings.maxPromptChars} 字
+                      {t('charCount', { used: editing.text.length, max: settings.maxPromptChars })}
                     </span>
                     <button type="button" className={css.primaryButton} onClick={saveEdit}>
-                      保存
+                      {t('save')}
                     </button>
                     <button type="button" className={css.secondaryButton} onClick={() => setEditing(undefined)}>
-                      取消
+                      {t('cancel')}
                     </button>
                   </div>
                 </div>
@@ -402,8 +391,8 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                   <div className={css.promptMain}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span className={css.promptName}>{prompt.name}</span>
-                      {isSelected ? <span className={css.badge}>已加入组合</span> : null}
-                      {overCap ? <span className={css.badgeMuted}>超出单条上限</span> : null}
+                      {isSelected ? <span className={css.badge}>{t('inCombination')}</span> : null}
+                      {overCap ? <span className={css.badgeMuted}>{t('overCap')}</span> : null}
                     </div>
                     <p
                       className={
@@ -412,7 +401,7 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                           : css.promptText
                       }
                     >
-                      {prompt.text.trim() === '' ? '空内容（不会被注入）' : prompt.text}
+                      {prompt.text.trim() === '' ? t('emptyText') : prompt.text}
                     </p>
                   </div>
                   <span className={css.rowActions}>
@@ -421,16 +410,18 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                       className={css.secondaryButton}
                       onClick={() => startEdit(prompt.id, prompt.name, prompt.text)}
                     >
-                      编辑
+                      {t('edit')}
                     </button>
                     <button
                       type="button"
                       className={css.dangerButton}
                       onClick={() => {
-                        if (window.confirm(`删除预设「${prompt.name}」？`)) controller.deletePrompt(prompt.id)
+                        if (window.confirm(t('deleteConfirm', { name: prompt.name }))) {
+                          controller.deletePrompt(prompt.id)
+                        }
                       }}
                     >
-                      删除
+                      {t('delete')}
                     </button>
                   </span>
                 </>
@@ -449,10 +440,10 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             disabled={currentPage <= 1}
             onClick={() => setPage(currentPage - 1)}
           >
-            ‹ 上一页
+            {t('previousPage')}
           </button>
           <span className={css.pagerStatus}>
-            第 {currentPage} / {pageCount} 页 · 共 {prompts.length} 条
+            {t('pageStatus', { page: currentPage, pages: pageCount, total: prompts.length })}
           </span>
           <button
             type="button"
@@ -460,14 +451,14 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             disabled={currentPage >= pageCount}
             onClick={() => setPage(currentPage + 1)}
           >
-            下一页 ›
+            {t('nextPage')}
           </button>
           <label className={css.pageSizeLabel}>
-            每页
+            {t('pageSizeLabel')}
             <select
               className={css.pageSizeSelect}
               value={pageSize}
-              aria-label="每页预设条数"
+              aria-label={t('pageSizeAria')}
               onChange={(event) => {
                 setPageSize(Number(event.target.value))
                 setPage(1)
@@ -491,21 +482,19 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
             setNewText('')
           }}
         >
-          ＋ 新增预设
+          {t('addPreset')}
         </button>
       </div>
 
       {/* Green zone: injection order of the selected presets. */}
       <div className={css.orderZone}>
         <div className={css.orderHead}>
-          <strong className={css.orderTitle}>注入顺序</strong>
-          <span className={css.orderHint}>拖拽或用 ↑ ↓ 调整；这里的顺序就是拼接顺序</span>
+          <strong className={css.orderTitle}>{t('orderTitle')}</strong>
+          <span className={css.orderHint}>{t('orderHint')}</span>
         </div>
 
         {selectedPrompts.length === 0 ? (
-          <p className={css.orderEmpty}>
-            还没选任何预设：勾选上方预设后，它们会按这里的顺序拼成锚文。当前状态为「不注入」，新会话不会收到定锚。
-          </p>
+          <p className={css.orderEmpty}>{t('orderEmpty')}</p>
         ) : (
           <ol className={css.orderList}>
             {selectedPrompts.map((prompt, index) => {
@@ -549,13 +538,13 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                   </span>
                   <span className={css.orderIndex}>{index + 1}</span>
                   <span className={css.orderName}>{prompt.name}</span>
-                  <span className={css.orderPreview}>{firstLine(prompt.text) || '（空内容）'}</span>
+                  <span className={css.orderPreview}>{firstLine(prompt.text) || t('orderEmptyPreview')}</span>
                   <span className={css.rowActions}>
                     <button
                       type="button"
                       className={css.iconButton}
                       disabled={index === 0}
-                      aria-label={`把「${prompt.name}」上移`}
+                      aria-label={t('moveUpAria', { name: prompt.name })}
                       onClick={() => controller.moveSelected(index, index - 1)}
                     >
                       ↑
@@ -564,7 +553,7 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                       type="button"
                       className={css.iconButton}
                       disabled={index === selectedPrompts.length - 1}
-                      aria-label={`把「${prompt.name}」下移`}
+                      aria-label={t('moveDownAria', { name: prompt.name })}
                       onClick={() => controller.moveSelected(index, index + 1)}
                     >
                       ↓
@@ -572,7 +561,7 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
                     <button
                       type="button"
                       className={css.iconButton}
-                      aria-label={`把「${prompt.name}」移出组合`}
+                      aria-label={t('removeAria', { name: prompt.name })}
                       onClick={() => controller.removeSelected(id)}
                     >
                       ×
@@ -585,13 +574,13 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
         )}
 
         <p className={overLimit ? css.orderOverLimit : css.orderMeta} role={overLimit ? 'alert' : undefined}>
-          合计 {combined.length} / {settings.maxCombinedChars} 字
-          {overLimit ? ' —— 超限：不会注入，请精简组合或调高合并上限' : ''}
+          {t('totalChars', { used: combined.length, max: settings.maxCombinedChars })}
+          {overLimit ? t('overLimitSuffix') : ''}
         </p>
 
         {combined !== '' ? (
           <details className={css.orderPreviewBox}>
-            <summary className={css.orderPreviewSummary}>合并文本预览</summary>
+            <summary className={css.orderPreviewSummary}>{t('previewSummary')}</summary>
             <pre className={css.orderPreviewBody}>{combined}</pre>
           </details>
         ) : null}

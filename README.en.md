@@ -52,7 +52,9 @@ dsh web
 
 Then open **Settings → 定锚 (Anchor)**, add a few presets, check them, drag them into the order you want, and start a new session.
 
-**Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page). The UI is currently Chinese.
+**Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page).
+
+**Language**: the settings page and its left-nav entry follow the DSH language setting (中文 / English); `/anchor` output follows the host process's `LC_ALL` / `LANG` (a tag whose first segment is `en` — `en`, `en_US.UTF-8` — reads English, anything else Chinese).
 
 ## Commands
 
@@ -105,7 +107,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 
 ```sh
 pnpm install     # dependencies (prepare builds once)
-pnpm check       # typecheck + 66 tests + build
+pnpm check       # typecheck + 79 tests + build
 pnpm build       # lib/index.js (host) and lib/client.js (client)
 ```
 

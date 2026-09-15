@@ -7,7 +7,9 @@
  * The retired single-selection field is never written again.
  */
 
+import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import { translate, type AnchorCopyKey } from '../copy.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
   FIELD_ENABLED,
@@ -53,6 +55,7 @@ export interface AnchorSnapshot {
 
 export class AnchorSettingsController {
   private readonly host: SettingsScope<AnchorSettings>
+  private readonly t: Translate<AnchorCopyKey>
   private readonly listeners = new Set<() => void>()
   private snapshot: AnchorSnapshot = {
     status: 'loading',
@@ -63,8 +66,16 @@ export class AnchorSettingsController {
     revision: 0,
   }
 
-  constructor(host: SettingsScope<AnchorSettings>) {
+  /**
+   * @param host - settings scope owning the durable document.
+   * @param t - translator (this plugin's own copy keys) for the names the controller writes INTO that document; defaults to the Chinese dictionary, so a caller without a locale still stores a readable name.
+   */
+  constructor(
+    host: SettingsScope<AnchorSettings>,
+    t: Translate<AnchorCopyKey> = (key) => translate('zh', key),
+  ) {
     this.host = host
+    this.t = t
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -146,7 +157,7 @@ export class AnchorSettingsController {
     const current = this.snapshot.settings
     const prompt: AnchorPrompt = {
       id: newId('prompt'),
-      name: name.trim() === '' ? '未命名提示词' : name.trim().slice(0, MAX_PROMPT_NAME_CHARS),
+      name: name.trim() === '' ? this.t('unnamedPreset') : name.trim().slice(0, MAX_PROMPT_NAME_CHARS),
       text: text.slice(0, current.maxPromptChars),
     }
     const prompts = [...current.prompts, prompt]
@@ -173,7 +184,7 @@ export class AnchorSettingsController {
             name:
               patch.name !== undefined
                 ? patch.name.trim() === ''
-                  ? '未命名提示词'
+                  ? this.t('unnamedPreset')
                   : patch.name.trim().slice(0, MAX_PROMPT_NAME_CHARS)
                 : prompt.name,
             text: patch.text !== undefined ? patch.text.slice(0, current.maxPromptChars) : prompt.text,

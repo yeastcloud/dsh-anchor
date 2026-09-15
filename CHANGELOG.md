@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-15
+
+### Added
+
+- **中英双语（zh / en）**：设置页文案改走 DSH 的语言服务——注册 `settings.anchor` 命名空间，左侧导航与整页文案跟随语言设置切换，不再是写死的中文；`/anchor` 与 `/anchor status` 的全部输出、以及超限时那条 `logger.warn`，改为跟随宿主进程的 `LC_ALL` / `LANG`（语言标签首段为 `en`，如 `en`、`en_US.UTF-8` → 英文，其余 → 中文；与浏览器偏好无关，因为 Host 半没有语言服务）。两端共用新增的 `src/copy.ts`：一份 `{ zh, en }` 文案表 + `{name}` 占位插值 + 英文回落，新增依赖 `@deepseek-ai/dsh-client-locale`（dev + peer）。
+
+### Changed
+
+- **文档纠正**：README.en.md 删掉「The UI is currently Chinese.」这条已经不成立的说明；两份 README 补上「设置页跟随 DSH 语言设置、命令与日志跟随 `LC_ALL`/`LANG`」，并移除路线图里已完成的「设置页 i18n（当前界面为中文）」。
+
 ## [0.6.2] — 2026-09-15
 
 ### Fixed

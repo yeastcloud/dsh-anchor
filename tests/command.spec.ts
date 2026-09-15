@@ -6,6 +6,11 @@
  * handler injects exactly one plugin-sourced message (which is what makes the
  * injection recognizable in the durable log afterwards), and that every refusal
  * path refuses instead of injecting something approximate.
+ *
+ * Command output is localized from the Host environment, and the harness injects
+ * that environment through `apply`'s third argument: the assertions therefore
+ * never depend on the locale of the machine running the suite (an unset one
+ * resolves to zh, which is the default this mount uses).
  */
 
 import { describe, expect, it } from 'vitest'
@@ -33,6 +38,8 @@ interface Harness {
   run: (rawInput?: string) => unknown
   setSettings: (patch: Partial<AnchorSettings>) => void
   setLog: (events: { type: string; seq: number; data: unknown }[]) => void
+  /** The command description this mount registered (locale-dependent). */
+  description: string | undefined
 }
 
 const PROMPTS = [
@@ -40,7 +47,10 @@ const PROMPTS = [
   { id: 'b', name: '乙预设', text: '乙' },
 ]
 
-function mount(initial: Partial<AnchorSettings> = {}): Harness {
+function mount(
+  initial: Partial<AnchorSettings> = {},
+  env: Record<string, string | undefined> = {},
+): Harness {
   let current: AnchorSettings = {
     ...DEFAULT_ANCHOR_SETTINGS,
     selectedIds: ['a'],
@@ -96,9 +106,10 @@ function mount(initial: Partial<AnchorSettings> = {}): Harness {
     },
   }
 
-  apply(ctx as unknown as Context)
+  apply(ctx as unknown as Context, undefined, { env })
   return {
     command,
+    description: command?.description,
     queued,
     run: (rawInput = '') => command?.handler({ agent, rawInput, commandId: 'c1', attachments: [], signal: new AbortController().signal }),
     setSettings: (patch) => {
@@ -120,6 +131,15 @@ describe('/anchor', () => {
     expect(harness.command?.description.length).toBeGreaterThan(0)
   })
 
+  // The description is registered once, from the same environment-injected
+  // locale as every handler reply.
+  it('describes itself in the locale the environment names', () => {
+    expect(mount().description).toContain('定锚')
+    const english = mount({}, { LC_ALL: 'en_US.UTF-8' })
+    expect(english.description).toContain('Anchor')
+    expect(english.description).not.toContain('定锚')
+  })
+
   // A next-step anchor is claimed by whatever turn is running, which silently adds
   // a model step to work already in flight; only the next-turn queue may be used.
   it('queues the anchor for the next turn, never for the next step', () => {
@@ -136,6 +156,26 @@ describe('/anchor', () => {
     expect(harness.queued).toHaveLength(1)
     expect(queuedText(harness)).toBe('乙\n\n甲')
     expect(harness.queued[0]?.message.source?.plugin).toBe(pluginName)
+  })
+
+  // Same run, two environments: the anchored TEXT is the user's own and never
+  // translated, while the report around it follows LC_ALL/LANG.
+  it('writes its success text in the locale the environment names', () => {
+    const chinese = mount({ selectedIds: ['b', 'a'] })
+    const chineseResult = resultOf(chinese.run())
+    expect(chineseResult.text).toContain('已定锚：4 字 · 2 段（乙预设 → 甲预设）')
+    expect(chineseResult.text).toContain('此后本会话的压缩/轮数重锚都会复用这段原文。')
+
+    const english = mount({ selectedIds: ['b', 'a'] }, { LC_ALL: 'en_US.UTF-8' })
+    const englishResult = resultOf(english.run())
+    expect(englishResult.kind).toBe('success')
+    expect(englishResult.text).toContain('Anchored: 4 char(s) · 2 preset(s) (乙预设 → 甲预设)')
+    expect(englishResult.text).toContain('Takes effect at the next turn boundary')
+    expect(englishResult.text).not.toContain('已定锚')
+    expect(queuedText(english)).toBe('乙\n\n甲')
+
+    const french = mount({ selectedIds: ['b', 'a'] }, { LANG: 'fr_FR.UTF-8' })
+    expect(resultOf(french.run()).text).toContain('已定锚')
   })
 
   it('does not queue the same combination twice', () => {
@@ -161,6 +201,15 @@ describe('/anchor', () => {
     const result = resultOf(harness.run())
     expect(result.kind).toBe('error')
     expect(result.text).toContain('总开关')
+    expect(harness.queued).toHaveLength(0)
+  })
+
+  it('refuses in English too, keeping the usage line', () => {
+    const harness = mount({ enabled: false }, { LC_ALL: 'en_US.UTF-8' })
+    const result = resultOf(harness.run())
+    expect(result.kind).toBe('error')
+    expect(result.text).toContain('The anchor master switch is off')
+    expect(result.text).toContain('`/anchor status` only reports state and injects nothing.')
     expect(harness.queued).toHaveLength(0)
   })
 
@@ -197,6 +246,17 @@ describe('/anchor', () => {
     expect(result.text).toContain('seq 3')
     expect(result.text).toContain('1 轮')
     expect(harness.queued).toHaveLength(0)
+  })
+
+  it('reports status in English for an English environment', () => {
+    const harness = mount({ reinjectSource: 'latest', reinjectTurnInterval: 7 }, { LC_ALL: 'en_US.UTF-8' })
+    const result = resultOf(harness.run('status'))
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('⚓ Anchor status')
+    expect(result.text).toContain('Master switch: on | Combination: 甲预设 (1 char(s) / limit 8000)')
+    expect(result.text).toContain('Re-anchor: the latest injection this plugin made | Turn interval: 7 turns | After compaction: yes')
+    expect(result.text).toContain('This session: no injection yet')
+    expect(result.text).not.toContain('定锚')
   })
 
   it('rejects an unknown argument with the usage line', () => {

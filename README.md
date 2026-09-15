@@ -62,6 +62,8 @@ dsh web
 
 **环境要求**：Node `^22.19 || >=24`；DeepSeek Harness 0.1.5 线（`0.1.5-rc.2` 起验证）。插件含 Host 半（注入逻辑）与 Client 半（设置页）。
 
+**界面语言**：设置页与左侧导航跟随 DSH 的语言设置（中文 / English）；`/anchor` 的输出跟随宿主进程的 `LC_ALL` / `LANG`（语言标签首段是 `en` 时走英文，例如 `en`、`en_US.UTF-8`；其余一律走中文）。
+
 ## 命令
 
 在任意会话里输入 `/anchor`：
@@ -144,7 +146,7 @@ graph TD
 ```sh
 pnpm install        # 依赖（prepare 会自动构建一次）
 pnpm typecheck      # tsc --noEmit（含 tests）
-pnpm test           # vitest：6 个 spec / 63 项
+pnpm test           # vitest：8 个 spec / 79 项
 pnpm build          # tsdown：lib/index.js（Host 半）与 lib/client.js（Client 半）
 pnpm check          # 三件套：typecheck + test + build
 ```
@@ -156,12 +158,13 @@ src/
   index.ts                     Host 半：设置命名空间 + agent/pre-step 注入决策
   trigger.ts                   纯函数：从会话日志读注入历史、判定重锚触发
   order.ts                     纯函数：列表移动与拖拽落点换算
+  copy.ts                      两端共享的中英文案表 + {name} 插值
   types/anchor-settings.ts     两端共享的设置契约（含容错解码与迁移）
   client/
-    index.ts                   注册 settings.section
+    index.ts                   注册 settings.section 与 settings.anchor 文案
     AnchorSettingsSection.tsx  设置页：预设库 / 分页器 / 注入顺序 / 重锚策略
     settings-controller.ts     按字段写、乐观更新的控制器
-tests/                         66 项单测（含真实 pre-step 监听器行为）
+tests/                         79 项单测（含真实 pre-step 监听器行为）
 ```
 
 **改动的生效范围**：Client 半刷新页面即生效（bundle 走 HTTP）；**Host 半需要重启 profile**（`lib/index.js` 只在启动时加载）。
@@ -174,7 +177,7 @@ gh workflow run release.yml -f bump=none                   # 不改版本，重�
 gh workflow run release.yml -f bump=patch -f dry_run=true   # 只验证链路，不提交不发版
 ```
 
-工作流做完全套：递增版本 → `pnpm check`（typecheck + 63 项测试 + 构建）→ 提交并打**注记 tag** → 发布 npm → 建 GitHub Release。发布走 **npm 可信发布（Trusted Publishing / OIDC）**：仓库里不存任何 npm token，产物自带 provenance 签名（可在 sigstore 查到）。
+工作流做完全套：递增版本 → `pnpm check`（typecheck + 79 项测试 + 构建）→ 提交并打**注记 tag** → 发布 npm → 建 GitHub Release。发布走 **npm 可信发布（Trusted Publishing / OIDC）**：仓库里不存任何 npm token，产物自带 provenance 签名（可在 sigstore 查到）。
 
 **`mode` 必须与 npmjs 上该包 Trusted Publisher 的权限一致**：
 
@@ -191,7 +194,6 @@ gh workflow run release.yml -f bump=patch -f dry_run=true   # 只验证链路，
 
 ## 路线图
 
-- [ ] 设置页 i18n（当前界面为中文）
 - [ ] 重锚来源增加「按最新组合刷新」策略
 - [ ] 支持按上下文 token 压力触发（接入 `dsh-token-meter`），作为轮数之外的第二把尺
 - [ ] 预设导入 / 导出（跨设备同步自己的指令库）

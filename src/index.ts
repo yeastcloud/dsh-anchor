@@ -57,6 +57,7 @@ import {
   type AnchorSettings,
 } from './types/anchor-settings.ts'
 import { readInjectionHistory, reinjectionReason } from './trigger.ts'
+import { translate, type AnchorCopyKey, type AnchorLocale, type CopyVars } from './copy.ts'
 
 export const name = NS
 
@@ -101,6 +102,35 @@ const AnchorSettingsSchema = z.object({
 
 export const Config = z.object({})
 
+/** Environment surface read for the locale of host-side output. */
+export type HostEnvironment = Readonly<Record<string, string | undefined>>
+
+/** Seams the composing caller (and tests) may supply to the host half. */
+export interface HostOptions {
+  /** Environment read for the output locale; defaults to `process.env`. */
+  readonly env?: HostEnvironment
+}
+
+/** Translator bound to one locale, as every host-side message uses it. */
+type HostTranslate = (key: AnchorCopyKey, vars?: CopyVars) => string
+
+/**
+ * Resolve the locale of host-side output from the process environment.
+ *
+ * The Host half has no locale service — the DSH language preference lives in the
+ * browser client — so `/anchor` and the over-limit warning follow the shell
+ * instead: `LC_ALL` wins over `LANG`, and only the leading tag is matched
+ * (`en_US.UTF-8` → `en`, `zh_CN.UTF-8` → `zh`). Anything unrecognised, including
+ * an unset variable, lands on `zh`, the language this plugin's copy is written
+ * in first.
+ * @param env - environment to read; defaults to `process.env`.
+ * @returns the locale of every host-side message.
+ */
+export function pickHostLocale(env: HostEnvironment = process.env): AnchorLocale {
+  const tag = (env['LC_ALL'] ?? env['LANG'] ?? '').toLowerCase().split(/[._-]/)[0] ?? ''
+  return tag === 'en' ? 'en' : 'zh'
+}
+
 /** One injection, shaped exactly like every other injection this plugin makes. */
 function createInjection(text: string): UserMessage {
   return createUserMessage({
@@ -121,15 +151,12 @@ function injectionText(message: UserMessage): string {
 }
 
 /** Human-facing summary of the current combination, for command output. */
-function describeCombination(settings: AnchorSettings): string {
-  if (settings.selectedIds.length === 0) return '（当前为「不注入」）'
+function describeCombination(settings: AnchorSettings, t: HostTranslate): string {
+  if (settings.selectedIds.length === 0) return t('command.combinationEmpty')
   return settings.selectedIds
     .map((id) => settings.prompts.find((prompt) => prompt.id === id)?.name ?? id)
     .join(' → ')
 }
-
-/** Usage line shared by every rejected `/anchor` form. */
-const ANCHOR_USAGE = '用法：`/anchor` 立即定锚当前组合；`/anchor status` 只看状态、不注入。'
 
 /**
  * One `/anchor` invocation: anchors the current combination into the receiving
@@ -139,10 +166,19 @@ const ANCHOR_USAGE = '用法：`/anchor` 立即定锚当前组合；`/anchor sta
  * locally against the agent (that is the documented command contract), so
  * anchoring costs no model call, opens no turn, and leaves the conversation
  * otherwise untouched. Only `/anchor` injects; `/anchor status` is read-only.
+ * @param settings - live settings document.
+ * @param invocation - the command invocation being served.
+ * @param locale - locale of every message this invocation returns.
+ * @returns the command result: injected text, a report, or a refusal.
  */
-function runAnchorCommand(settings: AnchorSettings, invocation: CommandInvocation): CommandResult {
+function runAnchorCommand(
+  settings: AnchorSettings,
+  invocation: CommandInvocation,
+  locale: AnchorLocale,
+): CommandResult {
+  const t: HostTranslate = (key, vars) => translate(locale, key, vars)
   const input = invocation.rawInput.trim().toLowerCase()
-  if (input !== '' && input !== 'status') return { kind: 'error', text: ANCHOR_USAGE }
+  if (input !== '' && input !== 'status') return { kind: 'error', text: t('command.usage') }
 
   const text = combinePromptTexts(settings.prompts, settings.selectedIds)
   // Anchors queue for the NEXT TURN rather than the next step. A next-step item is
@@ -161,71 +197,92 @@ function runAnchorCommand(settings: AnchorSettings, invocation: CommandInvocatio
 
   if (input === 'status') {
     const lines = [
-      '⚓ 定锚状态',
-      `总开关：${settings.enabled ? '开' : '关'} ｜ 组合：${describeCombination(settings)}（${text.length} 字 / 上限 ${settings.maxCombinedChars}）`,
-      `重锚：${settings.reinjectSource === 'latest' ? '最近一条本插件注入' : '定锚原文'}` +
-        ` ｜ 轮数间隔：${settings.reinjectTurnInterval === 0 ? '关闭' : `${String(settings.reinjectTurnInterval)} 轮`}` +
-        ` ｜ 压缩后：${settings.reinjectAfterCompaction ? '补' : '不补'}`,
+      t('command.statusTitle'),
+      t('command.statusSwitch', {
+        state: t(settings.enabled ? 'command.stateOn' : 'command.stateOff'),
+        combination: describeCombination(settings, t),
+        chars: text.length,
+        max: settings.maxCombinedChars,
+      }),
+      t('command.statusReinject', {
+        source: t(
+          settings.reinjectSource === 'latest'
+            ? 'command.reinjectSourceLatest'
+            : 'command.reinjectSourceFirst',
+        ),
+        interval: settings.reinjectTurnInterval === 0
+          ? t('command.intervalOff')
+          : t('command.intervalTurns', { turns: settings.reinjectTurnInterval }),
+        afterCompaction: t(
+          settings.reinjectAfterCompaction
+            ? 'command.afterCompactionYes'
+            : 'command.afterCompactionNo',
+        ),
+      }),
     ]
     if (queuedTurn.length > 0) {
       const chars = queuedTurn.reduce((total, message) => total + injectionText(message).length, 0)
-      lines.push(
-        `已排队：${String(queuedTurn.length)} 条（${String(chars)} 字），等下一个回合边界落进日志`,
-      )
+      lines.push(t('command.queuedTurn', { count: queuedTurn.length, chars }))
     }
     if (queuedStep.length > 0) {
-      lines.push(`另有 ${String(queuedStep.length)} 条排在下一个 step 边界`)
+      lines.push(t('command.queuedStep', { count: queuedStep.length }))
     }
     if (history.first === undefined) {
       lines.push(
         queuedTurn.length + queuedStep.length > 0
-          ? '本会话日志：还没有已落地的注入（上面那条落地后会成为首条基线）'
-          : '本会话：尚无注入（下一条消息的第一个 step 会定锚）',
+          ? t('command.noInjectionYetQueued')
+          : t('command.noInjectionYet'),
       )
     } else {
-      lines.push(
-        `本会话首条注入：seq ${String(history.first.seq)}（${String(history.first.text.length)} 字）`,
-      )
+      lines.push(t('command.firstInjection', { seq: history.first.seq, chars: history.first.text.length }))
     }
     if (history.latest !== undefined && history.latest.seq !== history.first?.seq) {
-      lines.push(
-        `最近一次注入：seq ${String(history.latest.seq)}（${String(history.latest.text.length)} 字）`,
-      )
+      lines.push(t('command.latestInjection', { seq: history.latest.seq, chars: history.latest.text.length }))
     }
     if (history.first !== undefined) {
       lines.push(
-        `距上次注入：${String(history.turnsSinceLastInjection)} 轮${history.compactedAfterLastInjection ? '，且之后发生过压缩' : ''}`,
+        t('command.turnsSince', { turns: history.turnsSinceLastInjection })
+        + (history.compactedAfterLastInjection ? t('command.compactedSince') : ''),
       )
     }
     return { kind: 'success', text: lines.join('\n') }
   }
 
-  if (!settings.enabled) return { kind: 'error', text: `定锚总开关已关闭（设置 → 定锚）。${ANCHOR_USAGE}` }
-  if (text === '') return { kind: 'error', text: `当前组合为空（「不注入」），没有可注入的内容。${ANCHOR_USAGE}` }
+  if (!settings.enabled) {
+    return { kind: 'error', text: t('command.switchOff', { usage: t('command.usage') }) }
+  }
+  if (text === '') {
+    return { kind: 'error', text: t('command.emptyCombination', { usage: t('command.usage') }) }
+  }
   if (text.length > settings.maxCombinedChars) {
     return {
       kind: 'error',
-      text: `组合 ${String(text.length)} 字，超过合并上限 ${String(settings.maxCombinedChars)} 字，未注入。`,
+      text: t('command.overLimit', { chars: text.length, max: settings.maxCombinedChars }),
     }
   }
   if ([...queuedTurn, ...queuedStep].some((message) => injectionText(message) === text)) {
-    return {
-      kind: 'success',
-      text: '⚓ 已有一条同样的组合在排队（等下一个回合边界落进日志），没有重复注入。',
-    }
+    return { kind: 'success', text: t('command.duplicate') }
   }
 
   invocation.agent.inbox.append('next-turn', createInjection(text))
   return {
     kind: 'success',
-    text:
-      `⚓ 已定锚：${String(text.length)} 字 · ${String(settings.selectedIds.length)} 段（${describeCombination(settings)}）\n` +
-      '生效：下一个回合边界——正在跑的回合照旧跑完，不会被延长；也不唤醒驱动。\n' +
-      '此后本会话的压缩/轮数重锚都会复用这段原文。',
+    text: t('command.anchored', {
+      chars: text.length,
+      segments: settings.selectedIds.length,
+      combination: describeCombination(settings, t),
+    }),
   }
 }
 
-export function apply(ctx: Context): void {
+/**
+ * @param ctx - host context providing the settings service (and, optionally, commands).
+ * @param _config - unused: this plugin reads no host configuration.
+ * @param options - locale seam for host-side output; tests inject an environment instead of mutating the process one.
+ */
+export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}): void {
+  const locale = pickHostLocale(options.env)
+  const t: HostTranslate = (key, vars) => translate(locale, key, vars)
   let live: () => AnchorSettings = () => DEFAULT_ANCHOR_SETTINGS
   /** Last over-limit state reported, so a long session warns once per change, not per step. */
   let warnedOverLimit: string | undefined
@@ -248,9 +305,9 @@ export function apply(ctx: Context): void {
   ctx.inject(['commands'], (commandCtx) => {
     commandCtx.commands.register({
       name: 'anchor',
-      description: '定锚：把当前组合注入本会话（不发消息、不触发模型回复）',
+      description: t('command.description'),
       input: { hint: '[status]' },
-      handler: (invocation) => runAnchorCommand(live(), invocation),
+      handler: (invocation) => runAnchorCommand(live(), invocation, locale),
     })
   })
 
@@ -291,9 +348,7 @@ export function apply(ctx: Context): void {
       if (warnedOverLimit !== signature) {
         warnedOverLimit = signature
         ctx.logger.warn(
-          'opening prompt is %d chars, above the configured %d-char limit; injection skipped',
-          text.length,
-          settings.maxCombinedChars,
+          t('log.overLimit', { chars: text.length, max: settings.maxCombinedChars }),
         )
       }
       return decision
