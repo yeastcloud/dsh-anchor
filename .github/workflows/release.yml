@@ -61,6 +61,20 @@ jobs:
       - name: Typecheck · test · build
         run: pnpm check
 
+      # 本项目直推 main：若发版前没同步上一个发版提交，工作流会在旧 HEAD 上跑完，
+      # 发出一个"内容与上版完全相同"的版本（0.5.0 就是这么来的）。有递增就必须能在
+      # CHANGELOG 里找到对应段落，否则直接失败。
+      - name: Require a CHANGELOG entry for the new version
+        if: ${{ inputs.bump != 'none' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md 里没有 ${VERSION} 的段落——先补 CHANGELOG 再发版，避免发出与上版相同的空版本"
+            exit 1
+          fi
+
       # bump=none 时跳过提交（版本已经在仓库里），但 tag 不存在仍会补打——
       # 这样"重跑一次失败的发布"不需要再升一个版本。
       - name: Commit and tag
