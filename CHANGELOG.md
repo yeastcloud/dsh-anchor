@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 发版工作流的 GitHub Release 笔记改为取本文件对应的版本段落（原先用 `--generate-notes`，而本项目直推 main、没有 PR 可汇总，结果只剩一个 compare 链接）。
+- 发版工作流修复：改用**注记 tag** 并显式推送（`--follow-tags` 不推轻量 tag）、新增 `mode=stage|direct` 与 `bump=none`、GitHub Release 创建改为幂等。
+
 ## [0.4.1] — 2026-09-15
 
 ### Changed

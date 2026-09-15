@@ -94,11 +94,28 @@ jobs:
             npm publish --provenance --access public
           fi
 
+      # Release 笔记优先取 CHANGELOG.md 里本版本的段落：本项目直推 main，没有 PR 可让
+      # --generate-notes 汇总，自动生成的结果只剩一个 compare 链接。缺段落时退回自动生成。
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           tag="v${VERSION}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes
+          notes="$(mktemp)"
+          awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 {inside=1; next} inside && /^## \[/ {exit} inside {print}' CHANGELOG.md > "$notes"
+          previous="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
+          if [ -n "$previous" ]; then
+            link="compare/${previous}...${tag}"
+          else
+            link="commits/${tag}"
+          fi
+          printf '\n**Full Changelog**: https://github.com/%s/%s\n' "$REPO" "$link" >> "$notes"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$tag" --notes-file "$notes"
+          else
+            gh release create "$tag" --title "$tag" --notes-file "$notes"
+          fi
