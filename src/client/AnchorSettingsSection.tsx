@@ -170,6 +170,19 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
         </span>
       </label>
 
+      <label className={css.behaviorSwitch}>
+        <input
+          type="checkbox"
+          className={css.behaviorCheckbox}
+          checked={settings.anchorSubagents}
+          onChange={(event) => controller.setAnchorSubagents(event.target.checked)}
+        />
+        <span className={css.behaviorCopy}>
+          <strong className={css.behaviorTitle}>{t('subagentTitle')}</strong>
+          <span className={css.behaviorDescription}>{t('subagentDescription')}</span>
+        </span>
+      </label>
+
       <div className={css.reinjectBlock}>
         <label className={css.behaviorSwitch}>
           <input

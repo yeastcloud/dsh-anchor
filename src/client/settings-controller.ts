@@ -18,6 +18,7 @@ import {
   FIELD_PROMPTS,
   FIELD_REINJECT_AFTER_COMPACTION,
   FIELD_REINJECT_SOURCE,
+  FIELD_ANCHOR_SUBAGENTS,
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
   MAX_PROMPT_NAME_CHARS,
@@ -97,6 +98,10 @@ export class AnchorSettingsController {
 
   setEnabled(enabled: boolean): void {
     this.commit(this.next({ enabled }), [[FIELD_ENABLED, enabled]])
+  }
+
+  setAnchorSubagents(anchorSubagents: boolean): void {
+    this.commit(this.next({ anchorSubagents }), [[FIELD_ANCHOR_SUBAGENTS, anchorSubagents]])
   }
 
   setReinjectAfterCompaction(reinjectAfterCompaction: boolean): void {

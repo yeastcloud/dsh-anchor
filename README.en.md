@@ -36,6 +36,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🎯 **Selectable re-anchor source** | `first` keeps repeating the session's opening text; `latest` repeats the newest injection of this plugin — for example one you anchored later with `/anchor`, which switches the persona inside that session. |
 | 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
+| 🐋 **Subagents stay unanchored** | Delegated child sessions get **no anchor and no re-anchor** by default: the persona and discipline are for the session you steer yourself, and a child replaying them only spends tokens. Turn it on in the settings page to treat children the same. |
 | ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor waits for the next turn boundary). `/anchor status` reports without injecting. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
@@ -90,6 +91,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 | `maxPromptChars` | `8000` | Authoring limit per preset; never truncates stored text |
 | `maxCombinedChars` | `8000` | Injection gate for the combined text; above it nothing is injected and a warning is logged |
 | `reinjectSource` | `'first'` | Which injection a re-anchor repeats: `first` or `latest` |
+| `anchorSubagents` | `false` | Whether delegated (subagent) sessions are anchored too — off by default |
 
 ## FAQ
 

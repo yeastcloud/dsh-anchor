@@ -258,6 +258,40 @@ describe('re-injection', () => {
   })
 })
 
+describe('delegated (subagent) sessions', () => {
+  /** The provenance event `dsh-subagent` writes into a delegated child's log. */
+  const delegated = (seq: number): LogEvent => ({
+    type: 'sandbox/mode',
+    seq,
+    data: { mode: 'workspace-write', source: 'delegation' },
+  })
+
+  it('stays out of a delegated session by default', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a']))
+    const result = await step(harness, [delegated(0)], { claimed: [claim('派活')] })
+    expect(injectedText(result)).toBeUndefined()
+    expect(result.messages).toHaveLength(1)
+  })
+
+  it('anchors a delegated session once the user opts in', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a'], { anchorSubagents: true }))
+    const result = await step(harness, [delegated(0)], { claimed: [claim('派活')] })
+    expect(injectedText(result)).toBe('锚文原文')
+  })
+
+  it('skips re-injection in a delegated session that already carries a baseline', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a']))
+    const log = [delegated(0), ours('锚文原文', 1), compactionSummary(2)]
+    expect(injectedText(await step(harness, log, { turn: 5, claimed: [claim('继续')] }))).toBeUndefined()
+
+    harness.setSettings(settingsWith(['a'], { anchorSubagents: true }))
+    expect(injectedText(await step(harness, log, { turn: 5, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+})
+
 describe('re-injection source', () => {
   const second = '后来重锚的文本'
 

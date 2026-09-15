@@ -4,7 +4,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { readInjectionHistory, reinjectionReason, type AnchorLogEvent } from '../src/trigger.ts'
+import {
+  isDelegatedSession,
+  readInjectionHistory,
+  reinjectionReason,
+  type AnchorLogEvent,
+} from '../src/trigger.ts'
 
 const NS = 'dsh-anchor'
 
@@ -43,6 +48,34 @@ function compactionSummary(seq: number): AnchorLogEvent {
 }
 
 const EVERY = { reinjectAfterCompaction: true, reinjectTurnInterval: 20 }
+
+/** One event carrying the provenance `dsh-subagent` stamps on a delegated child. */
+function delegatedEvent(seq: number, type: string): AnchorLogEvent {
+  return { type, seq, data: { mode: 'workspace-write', source: 'delegation' } }
+}
+
+describe('isDelegatedSession', () => {
+  it('recognises the delegation provenance dsh-subagent appends', () => {
+    expect(isDelegatedSession([human('你好', 0), delegatedEvent(1, 'sandbox/mode')])).toBe(true)
+    expect(isDelegatedSession([delegatedEvent(0, 'approval/policy')])).toBe(true)
+  })
+
+  it('leaves an ordinary session alone', () => {
+    expect(isDelegatedSession([human('你好', 0), turnStart(1)])).toBe(false)
+    expect(isDelegatedSession([ours('锚文', 0)])).toBe(false)
+  })
+
+  it('reads the provenance value, not the mere presence of the event', () => {
+    const switched = (source: unknown): AnchorLogEvent => ({
+      type: 'sandbox/mode',
+      seq: 0,
+      data: { mode: 'workspace-write', source },
+    })
+    expect(isDelegatedSession([switched('user')])).toBe(false)
+    expect(isDelegatedSession([switched(undefined)])).toBe(false)
+    expect(isDelegatedSession([{ type: 'sandbox/mode', seq: 0, data: null }])).toBe(false)
+  })
+})
 
 describe('readInjectionHistory', () => {
   it('reports nothing for a session that was never injected', () => {

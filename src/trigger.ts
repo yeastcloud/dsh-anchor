@@ -74,6 +74,33 @@ function sourceOf(data: unknown): { kind?: unknown; plugin?: unknown } | undefin
   return source as { kind?: unknown; plugin?: unknown }
 }
 
+/** Event type `dsh-subagent` stamps when it captures the delegation policy. */
+const SANDBOX_MODE = 'sandbox/mode'
+/** Event type `dsh-subagent` stamps when it captures the approval policy. */
+const APPROVAL_POLICY = 'approval/policy'
+/** Provenance value those stamped events carry on a delegated child's log. */
+const DELEGATION_SOURCE = 'delegation'
+
+/**
+ * Whether one durable event log belongs to a delegated (subagent) session.
+ *
+ * `dsh-subagent` appends the captured delegation policy onto the child's own log
+ * as `sandbox/mode` / `approval/policy` events carrying `source: 'delegation'`,
+ * deliberately so the child's provenance is reconstructable from its log alone.
+ * That makes the marker readable here without any live parent lookup.
+ *
+ * @param events - ordered durable events (`session.snapshotEvents()`).
+ * @returns true when a delegation created this session.
+ */
+export function isDelegatedSession(events: readonly AnchorLogEvent[]): boolean {
+  for (const event of events) {
+    if (event.type !== SANDBOX_MODE && event.type !== APPROVAL_POLICY) continue
+    if (typeof event.data !== 'object' || event.data === null) continue
+    if ((event.data as { source?: unknown }).source === DELEGATION_SOURCE) return true
+  }
+  return false
+}
+
 /** Whether one event data payload is a message this plugin sourced itself. */
 function isOwnMessage(data: unknown, plugin: string): boolean {
   const source = sourceOf(data)

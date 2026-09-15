@@ -149,4 +149,19 @@ describe('re-injection source and hand-send digests', () => {
     const parsed = parseAnchorSettings({ enabled: true, selectedIds: [], prompts: [prompt('a')] })
     expect(parsed?.reinjectSource).toBe(DEFAULT_REINJECT_SOURCE)
   })
+
+  it('leaves subagent anchoring off unless a document opts in', () => {
+    expect(DEFAULT_ANCHOR_SETTINGS.anchorSubagents).toBe(false)
+    expect(
+      parseAnchorSettings({ enabled: true, selectedIds: [], prompts: [prompt('a')] })?.anchorSubagents,
+    ).toBe(false)
+    expect(
+      parseAnchorSettings({
+        enabled: true,
+        selectedIds: [],
+        prompts: [prompt('a')],
+        anchorSubagents: true,
+      })?.anchorSubagents,
+    ).toBe(true)
+  })
 })

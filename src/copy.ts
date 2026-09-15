@@ -36,6 +36,9 @@ const zh = {
   // Master switch and re-anchor policy.
   enabledTitle: '启用注入',
   enabledDescription: '总开关：关闭后定锚与重锚全部停止，设置与组合保留。',
+  subagentTitle: '子代理会话也定锚',
+  subagentDescription:
+    '默认关闭：被委派出去的子会话不定锚、也不重锚，省掉每次委派都要付的这份开销。打开后子代理会话与你自己开的会话同样处理。',
   reinjectTitle: '压缩后自动重锚',
   reinjectDescription: '会话被压缩（自动触发或 /compact）后，在下一次模型请求前把锚文原样重锚一次。',
   turnIntervalTitle: '按轮数重锚',
@@ -163,6 +166,9 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   enabledTitle: 'Injection enabled',
   enabledDescription:
     'Master switch: turning it off stops both anchoring and re-anchoring; the settings and the combination are kept.',
+  subagentTitle: 'Anchor subagent sessions too',
+  subagentDescription:
+    'Off by default: a delegated child session gets no anchor and no re-anchor, so every delegation skips that overhead. When on, child sessions are treated exactly like a session you steer yourself.',
   reinjectTitle: 'Re-anchor after compaction',
   reinjectDescription:
     'After the session is compacted (automatically or by /compact), re-anchor the same text once, right before the next model request.',

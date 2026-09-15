@@ -43,6 +43,7 @@ import {
   FIELD_MAX_PROMPT_CHARS,
   FIELD_PROMPTS,
   FIELD_REINJECT_AFTER_COMPACTION,
+  FIELD_ANCHOR_SUBAGENTS,
   FIELD_REINJECT_SOURCE,
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
@@ -56,7 +57,7 @@ import {
   combinePromptTexts,
   type AnchorSettings,
 } from './types/anchor-settings.ts'
-import { readInjectionHistory, reinjectionReason } from './trigger.ts'
+import { isDelegatedSession, readInjectionHistory, reinjectionReason } from './trigger.ts'
 import { translate, type AnchorCopyKey, type AnchorLocale, type CopyVars } from './copy.ts'
 
 export const name = NS
@@ -98,6 +99,7 @@ const AnchorSettingsSchema = z.object({
   // The union pins the accepted values; a hand-edited document is normalized on
   // the client decode and falls back to the default rather than failing.
   [FIELD_REINJECT_SOURCE]: z.union([z.const('first'), z.const('latest')]).default(DEFAULT_REINJECT_SOURCE),
+  [FIELD_ANCHOR_SUBAGENTS]: z.boolean().default(DEFAULT_ANCHOR_SETTINGS.anchorSubagents),
 })
 
 export const Config = z.object({})
@@ -320,11 +322,13 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
     const settings = live()
     if (!settings.enabled) return decision
 
-    const history = readInjectionHistory(
-      agent.session.snapshotEvents(),
-      NS,
+    const events = agent.session.snapshotEvents()
+    // Delegated (subagent) sessions are skipped unless the user opts in: the
+    // persona and discipline belong to the session a human steers, and a child
+    // replaying them spends tokens on every delegation.
+    if (!settings.anchorSubagents && isDelegatedSession(events)) return decision
 
-    )
+    const history = readInjectionHistory(events, NS)
 
     let text: string | undefined
     if (history.first === undefined) {

@@ -17,6 +17,7 @@ export const FIELD_REINJECT_TURN_INTERVAL = 'reinjectTurnInterval'
 export const FIELD_MAX_PROMPT_CHARS = 'maxPromptChars'
 export const FIELD_MAX_COMBINED_CHARS = 'maxCombinedChars'
 export const FIELD_REINJECT_SOURCE = 'reinjectSource'
+export const FIELD_ANCHOR_SUBAGENTS = 'anchorSubagents'
 
 /**
  * Retired single-selection field. Never written again; decoded only so a
@@ -55,6 +56,8 @@ export interface AnchorSettings {
   maxCombinedChars: number
   /** Which injection a re-injection repeats. */
   reinjectSource: ReinjectSource
+  /** Whether delegated (subagent) sessions are anchored at all. */
+  anchorSubagents: boolean
 }
 
 export const DEFAULT_PROMPTS: AnchorPrompt[] = [
@@ -89,6 +92,7 @@ export const DEFAULT_ANCHOR_SETTINGS: AnchorSettings = {
   maxPromptChars: DEFAULT_MAX_PROMPT_CHARS,
   maxCombinedChars: DEFAULT_MAX_COMBINED_CHARS,
   reinjectSource: DEFAULT_REINJECT_SOURCE,
+  anchorSubagents: false,
 }
 
 export function cloneSettings(value: AnchorSettings): AnchorSettings {
@@ -101,6 +105,7 @@ export function cloneSettings(value: AnchorSettings): AnchorSettings {
     maxPromptChars: value.maxPromptChars,
     maxCombinedChars: value.maxCombinedChars,
     reinjectSource: value.reinjectSource,
+    anchorSubagents: value.anchorSubagents,
   }
 }
 
@@ -221,5 +226,6 @@ export function parseAnchorSettings(raw: unknown): AnchorSettings | undefined {
         ? normalizeTextLimit(combinedChars, DEFAULT_MAX_COMBINED_CHARS)
         : DEFAULT_MAX_COMBINED_CHARS,
     reinjectSource: normalizeReinjectSource(candidate[FIELD_REINJECT_SOURCE]),
+    anchorSubagents: candidate[FIELD_ANCHOR_SUBAGENTS] === true,
   }
 }
