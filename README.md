@@ -159,13 +159,21 @@ tests/                         63 项单测（含真实 pre-step 监听器行为
 ## 发布（维护者）
 
 ```sh
-# 一条命令：递增版本 → 全量检查 → 构建 → 提交并打 tag → 发布 npm → 建 GitHub Release
-gh workflow run release.yml -f bump=minor
+gh workflow run release.yml -f bump=minor                  # 递增版本并发布
+gh workflow run release.yml -f bump=none                   # 不改版本，重发仓库当前版本
+gh workflow run release.yml -f bump=patch -f dry_run=true   # 只验证链路，不提交不发版
 ```
 
-发布走 **npm 可信发布（Trusted Publishing / OIDC）**：仓库里不存任何 npm token，产物自带 provenance 签名。
+工作流做完全套：递增版本 → `pnpm check`（typecheck + 63 项测试 + 构建）→ 提交并打**注记 tag** → 发布 npm → 建 GitHub Release。发布走 **npm 可信发布（Trusted Publishing / OIDC）**：仓库里不存任何 npm token，产物自带 provenance 签名（可在 sigstore 查到）。
 
-首次发布需要人工一次（npm 侧要求包已存在，才能配置可信发布者）：
+**`mode` 必须与 npmjs 上该包 Trusted Publisher 的权限一致**：
+
+| `mode` | npm 侧需要授予的权限 | 行为 |
+| --- | --- | --- |
+| `stage`（默认） | `npm stage publish` | 版本在 npm **暂存**，维护者用 2FA 确认后才对外可见：`npm stage list <pkg>` 查 stage id → `npm stage approve <stage-id>`（或在包页面点批准） |
+| `direct` | `npm publish` | 工作流跑完即上架，无需再确认 |
+
+首次发布（npm 侧要求包已存在才能配可信发布者）：
 
 1. `npm login` 后在本仓库执行 `pnpm check && npm publish --access public`；
 2. 打开 npmjs.com 上该包的 **Settings → Trusted Publisher**，填 GitHub 仓库 `yeastcloud/dsh-anchor` 与工作流 `release.yml`；

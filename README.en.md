@@ -102,10 +102,21 @@ Client-half changes take effect on a page refresh; **host-half changes need a pr
 ## Releasing
 
 ```sh
-gh workflow run release.yml -f bump=minor
+gh workflow run release.yml -f bump=minor                  # bump and release
+gh workflow run release.yml -f bump=none                   # release the version already in the repository
+gh workflow run release.yml -f bump=patch -f dry_run=true   # verify the pipeline only, nothing is committed or published
 ```
 
-Publishing uses **npm trusted publishing (OIDC)** — no npm token is stored in the repository, and releases carry a provenance attestation. The very first publish is manual (npm requires the package to exist before a trusted publisher can be configured); afterwards every release goes through the workflow.
+The workflow bumps the version, runs `pnpm check`, commits and pushes an **annotated tag**, publishes to npm, and creates a GitHub Release. Publishing uses **npm trusted publishing (OIDC)** — no npm token is stored in the repository, and every release carries a provenance attestation.
+
+`mode` must match the permission granted to this package's Trusted Publisher on npmjs:
+
+| `mode` | npm permission required | Behavior |
+| --- | --- | --- |
+| `stage` (default) | `npm stage publish` | the version is staged on npm and becomes public once a maintainer approves it with 2FA: `npm stage list <pkg>` → `npm stage approve <stage-id>` |
+| `direct` | `npm publish` | live as soon as the workflow finishes |
+
+The very first publish is manual (npm requires the package to exist before a trusted publisher can be configured); afterwards every release goes through the workflow.
 
 ## License
 
