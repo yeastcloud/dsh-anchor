@@ -8,11 +8,11 @@
 
 [![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![npm downloads](https://img.shields.io/npm/dm/@yeastcloud/dsh-anchor.svg)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
-[![CI](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml)
+[![CI](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-brightgreen.svg)](#安装)
 
-[English](README.en.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/TianLanDaoRen/dsh-anchor/issues)
+[English](README.en.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yeastcloud/dsh-anchor/issues)
 
 </div>
 
@@ -168,7 +168,7 @@ gh workflow run release.yml -f bump=minor
 首次发布需要人工一次（npm 侧要求包已存在，才能配置可信发布者）：
 
 1. `npm login` 后在本仓库执行 `pnpm check && npm publish --access public`；
-2. 打开 npmjs.com 上该包的 **Settings → Trusted Publisher**，填 GitHub 仓库 `TianLanDaoRen/dsh-anchor` 与工作流 `release.yml`；
+2. 打开 npmjs.com 上该包的 **Settings → Trusted Publisher**，填 GitHub 仓库 `yeastcloud/dsh-anchor` 与工作流 `release.yml`；
 3. 此后一律用上面的 `gh workflow run`，版本号与 tag 由工作流维护。
 
 ## 路线图

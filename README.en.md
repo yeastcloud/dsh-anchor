@@ -7,10 +7,10 @@
 Persona, tone, working discipline, project rules: say it once, and it keeps counting.
 
 [![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
-[![CI](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml)
+[![CI](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[中文](README.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/TianLanDaoRen/dsh-anchor/issues)
+[中文](README.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/yeastcloud/dsh-anchor/issues)
 
 </div>
 

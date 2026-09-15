@@ -18,15 +18,15 @@
     "compaction",
     "agent"
   ],
-  "homepage": "https://github.com/TianLanDaoRen/dsh-anchor#readme",
+  "homepage": "https://github.com/yeastcloud/dsh-anchor#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TianLanDaoRen/dsh-anchor.git"
+    "url": "git+https://github.com/yeastcloud/dsh-anchor.git"
   },
   "bugs": {
-    "url": "https://github.com/TianLanDaoRen/dsh-anchor/issues"
+    "url": "https://github.com/yeastcloud/dsh-anchor/issues"
   },
-  "author": "YiSiYun Studio (一笥云) <https://github.com/TianLanDaoRen>",
+  "author": "YiSiYun Studio (一笥云) <https://github.com/yeastcloud>",
   "publishConfig": {
     "access": "public"
   },
