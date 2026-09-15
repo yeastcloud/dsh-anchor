@@ -4,7 +4,7 @@
  * The drag target and the ↑/↓ buttons both end in the same primitive — move one
  * item to another index — so the two interactions cannot drift apart.
  *
- * @module @yisiyun/dsh-anchor/order
+ * @module @yeastcloud/dsh-anchor/order
  */
 
 /** Move one item to `to`, clamped into range; returns a new array. */

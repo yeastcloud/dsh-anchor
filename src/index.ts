@@ -1,5 +1,5 @@
 /**
- * @yisiyun/dsh-anchor — Host half.
+ * @yeastcloud/dsh-anchor — Host half.
  *
  * Durable settings namespace + opening-prompt injection.
  *

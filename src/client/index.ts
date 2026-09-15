@@ -1,8 +1,8 @@
 /**
- * @yisiyun/dsh-anchor — Browser half.
+ * @yeastcloud/dsh-anchor — Browser half.
  *
  * Registers one `settings.section` page (left nav entry + right panel) that
- * owns the host's `@yisiyun/dsh-anchor` namespace. No floating overlay:
+ * owns the host's `@yeastcloud/dsh-anchor` namespace. No floating overlay:
  * the shell's nav drives visibility, the panel is pure slot content.
  * All persistence rides `ctx.settingsScope` (host-backed when loopback).
  */

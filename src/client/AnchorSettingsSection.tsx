@@ -1,5 +1,5 @@
 /**
- * @yisiyun/dsh-anchor settings page — lives inside `settings.section`.
+ * @yeastcloud/dsh-anchor settings page — lives inside `settings.section`.
  *
  * Three zones:
  *  - the preset library, paged, with the exclusive 「不注入」 row pinned above it

@@ -1,5 +1,5 @@
 /**
- * Shared durable settings contract for @yisiyun/dsh-anchor.
+ * Shared durable settings contract for @yeastcloud/dsh-anchor.
  * Host (schemastery) and client (decode) must stay in sync.
  *
  * The opening prompt is a free COMBINATION of presets: `selectedIds` is ordered

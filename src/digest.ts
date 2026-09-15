@@ -1,5 +1,5 @@
 /**
- * Content digest shared by both halves of @yisiyun/dsh-anchor.
+ * Content digest shared by both halves of @yeastcloud/dsh-anchor.
  *
  * The composer dock sends the combined opening prompt as an ordinary user
  * message, so the Host recognizes it by content: the client records a digest of
@@ -13,7 +13,7 @@
  * make a manually pasted message count as this plugin's own send — the same
  * consequence as pasting the text that the button would have sent.
  *
- * @module @yisiyun/dsh-anchor/digest
+ * @module @yeastcloud/dsh-anchor/digest
  */
 
 /** Digest one text: 14 lowercase hex characters, stable across both halves. */

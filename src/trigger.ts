@@ -1,5 +1,5 @@
 /**
- * Pure re-injection decision for @yisiyun/dsh-anchor.
+ * Pure re-injection decision for @yeastcloud/dsh-anchor.
  *
  * A session's opening prompt decays: a long turn chain pushes it far behind the
  * live context, and a summarizing compaction can shadow it out of the surface
@@ -18,7 +18,7 @@
  * restart, or replay reaches the same decision, and a re-injection cannot
  * repeat (its own message moves the reference seq forward on the next pass).
  *
- * @module @yisiyun/dsh-anchor/trigger
+ * @module @yeastcloud/dsh-anchor/trigger
  */
 
 import { digestText } from './digest.ts'

@@ -1,5 +1,5 @@
 /**
- * @yisiyun/dsh-anchor composer dock button.
+ * @yeastcloud/dsh-anchor composer dock button.
  *
  * Sits in `conversation.composer.dock` next to the ponytail pill: one click
  * sends the current combined opening prompt as a plain queued message

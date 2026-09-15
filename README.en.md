@@ -6,7 +6,7 @@
 
 Persona, tone, working discipline, project rules: say it once, and it keeps counting.
 
-[![npm version](https://img.shields.io/npm/v/@yisiyun/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yisiyun/dsh-anchor)
+[![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![CI](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -44,7 +44,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 
 ```sh
 # Requires DeepSeek Harness (Web profile)
-dsh plugin --profile web add @yisiyun/dsh-anchor
+dsh plugin --profile web add @yeastcloud/dsh-anchor
 
 # The host half loads at boot: restart the profile
 dsh web

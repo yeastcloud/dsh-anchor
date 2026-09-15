@@ -6,8 +6,8 @@
 
 人设、口吻、工作纪律、项目规范——开场说一次，之后永远算数。
 
-[![npm version](https://img.shields.io/npm/v/@yisiyun/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yisiyun/dsh-anchor)
-[![npm downloads](https://img.shields.io/npm/dm/@yisiyun/dsh-anchor.svg)](https://www.npmjs.com/package/@yisiyun/dsh-anchor)
+[![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
+[![npm downloads](https://img.shields.io/npm/dm/@yeastcloud/dsh-anchor.svg)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![CI](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/TianLanDaoRen/dsh-anchor/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-brightgreen.svg)](#安装)
@@ -48,7 +48,7 @@
 
 ```sh
 # 需要 DeepSeek Harness（Web profile）
-dsh plugin --profile web add @yisiyun/dsh-anchor
+dsh plugin --profile web add @yeastcloud/dsh-anchor
 
 # 重启 profile 后生效（Host 半只在启动时加载）
 dsh web

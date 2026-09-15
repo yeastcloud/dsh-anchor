@@ -1,5 +1,5 @@
 /**
- * Client-side settings controller for @yisiyun/dsh-anchor.
+ * Client-side settings controller for @yeastcloud/dsh-anchor.
  *
  * Every mutation writes ONLY the fields it changed: with the ordered selection,
  * checkboxes and drag reordering touch `selectedIds` alone, so a rapid sequence
