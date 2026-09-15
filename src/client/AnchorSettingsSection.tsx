@@ -267,8 +267,9 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
         </div>
 
         <p className={css.hint}>
-          重锚始终使用<strong>本次会话开始时那段原文</strong>（从会话记录里取回），
-          不跟随下面的组合实时变化——改组合只影响下一个新会话。
+          重锚重复的是上面「重锚取哪一条」选定的那一条：选<strong>「定锚原文」</strong>时永远是本次会话开头那段
+          （从会话记录里取回，改组合只影响下一个新会话）；选<strong>「最近一条」</strong>时是本插件最近一次注入——
+          用 /anchor 把改好的组合定进来，就会在本次会话内换掉重锚内容。
         </p>
       </div>
 
