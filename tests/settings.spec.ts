@@ -143,6 +143,14 @@ describe('re-injection source and hand-send digests', () => {
       reinjectSource: 'latest',
     })
     expect(parsed?.reinjectSource).toBe('latest')
+
+    const refreshed = parseAnchorSettings({
+      enabled: true,
+      selectedIds: [],
+      prompts: [prompt('a')],
+      reinjectSource: 'refresh',
+    })
+    expect(refreshed?.reinjectSource).toBe('refresh')
   })
 
   it('defaults the source when a host half predates it', () => {

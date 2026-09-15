@@ -236,6 +236,14 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
             >
               {t('reinjectLatest')}
             </button>
+            <button
+              type="button"
+              className={settings.reinjectSource === 'refresh' ? css.tabActive : css.tab}
+              aria-pressed={settings.reinjectSource === 'refresh'}
+              onClick={() => controller.setReinjectSource('refresh')}
+            >
+              {t('reinjectRefresh')}
+            </button>
           </span>
         </div>
 
@@ -275,7 +283,8 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
 
         <p className={css.hint}>
           {t('hintLead')}<strong>{t('hintFirst')}</strong>{t('hintMid')}
-          <strong>{t('hintLatest')}</strong>{t('hintTail')}
+          <strong>{t('hintLatest')}</strong>{t('hintMid2')}
+          <strong>{t('hintRefresh')}</strong>{t('hintTail')}
         </p>
       </div>
 

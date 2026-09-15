@@ -311,6 +311,25 @@ describe('re-injection source', () => {
     expect(injectedText(result)).toBe(second)
   })
 
+  // `refresh` is the one source that reads live settings instead of the log: an
+  // edited preset or selection reaches the running session at its next re-anchor.
+  it('states the current combination when the source is refresh', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a'], { reinjectSource: 'refresh' }))
+    const log = [ours('锚文原文', 0), compactionSummary(1)]
+    expect(injectedText(await step(harness, log, { turn: 5, claimed: [claim('继续')] }))).toBe('锚文原文')
+
+    harness.setSettings(settingsWith(['b'], { reinjectSource: 'refresh' }))
+    expect(injectedText(await step(harness, log, { turn: 6, claimed: [claim('继续')] }))).toBe('后来改选的预设')
+  })
+
+  it('still refuses a refreshed combination above the combined limit', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a'], { reinjectSource: 'refresh', maxCombinedChars: 2 }))
+    const log = [ours('锚', 0), compactionSummary(1)]
+    expect(injectedText(await step(harness, log, { turn: 5, claimed: [claim('继续')] }))).toBeUndefined()
+  })
+
   it('ignores an ordinary user message, so a session can have no baseline', async () => {
     const harness = mount()
     harness.setSettings(settingsWith(['b']))

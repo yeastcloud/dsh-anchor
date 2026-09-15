@@ -46,21 +46,24 @@ const zh = {
   turnIntervalAria: '重锚轮数间隔',
   reinjectSourceTitle: '重锚取哪一条',
   reinjectSourceDescription:
-    '重锚重复哪一条：「定锚原文」= 永远重复会话开头那条；「最近一条」= 重复本插件最近一次注入 （用 `/anchor` 定锚的那条也在此列，等于在本会话把人设换掉）。',
+    '重锚注入哪一段：「定锚原文」= 永远重复会话开头那条；「最近一条」= 重复本插件最近一次注入（用 `/anchor` 定锚的那条也在此列）；「当前组合」= 用设置页现在的组合，改了预设或勾选，下一次重锚就是新的。',
   reinjectSourceAria: '重锚来源',
   reinjectFirst: '定锚原文',
   reinjectLatest: '最近一条',
+  reinjectRefresh: '当前组合',
   maxPromptTitle: '单条上限',
   maxPromptDescription: '编辑器里单条预设最多可输入的字数。已存在的长预设不会被自动截断。',
   maxPromptAria: '单条上限字数',
   maxCombinedTitle: '合并上限',
   maxCombinedDescription: '组合拼接后的总字数上限；超限则定锚与重锚都不注入，并写入日志。',
   maxCombinedAria: '合并上限字数',
-  hintLead: '重锚重复的是上面「重锚取哪一条」选定的那一条：选',
+  hintLead: '重锚按「重锚取哪一条」取文本：选',
   hintFirst: '「定锚原文」',
   hintMid: '时永远是本次会话开头那段 （从会话记录里取回，改组合只影响下一个新会话）；选',
   hintLatest: '「最近一条」',
-  hintTail: '时是本插件最近一次注入—— 用 /anchor 把改好的组合定进来，就会在本次会话内换掉重锚内容。',
+  hintMid2: '时是本插件最近一次注入—— 用 /anchor 把改好的组合定进来，就会在本次会话内换掉重锚内容；选',
+  hintRefresh: '「当前组合」',
+  hintTail: '时，每次重锚都重新读这里当前的组合，改完预设或勾选不用等新会话。',
 
   // Save/report lines.
   loading: '正在读取设置…',
@@ -124,6 +127,7 @@ const zh = {
   'command.statusReinject': '重锚：{source} ｜ 轮数间隔：{interval} ｜ 压缩后：{afterCompaction}',
   'command.reinjectSourceLatest': '最近一条本插件注入',
   'command.reinjectSourceFirst': '定锚原文',
+  'command.reinjectSourceRefresh': '当前组合（每次重锚都取最新设置）',
   'command.intervalOff': '关闭',
   'command.intervalTurns': '{turns} 轮',
   'command.afterCompactionYes': '补',
@@ -141,6 +145,8 @@ const zh = {
   'command.duplicate': '⚓ 同一条组合已经在待生效位（下一条消息的第一个 step 注入），没有重复准备。',
   'command.anchored':
     '⚓ 已定锚：{chars} 字 · {segments} 段（{combination}）\n生效：下一条消息的第一个 step —— 不进输入框、不会自己开回合，也不会延长正在跑的回合。\n此后本会话的压缩/轮数重锚都会复用这段原文。',
+  'command.anchoredRefresh':
+    '⚓ 已定锚：{chars} 字 · {segments} 段（{combination}）\n生效：下一条消息的第一个 step —— 不进输入框、不会自己开回合，也不会延长正在跑的回合。\n当前「重锚取哪一条」是「当前组合」：重锚不重复这段，而是取那一刻设置页的组合。',
   'log.overLimit': '定锚注入已跳过：开启提示词 {chars} 字，超过配置的 {max} 字上限',
 }
 
@@ -177,10 +183,11 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   turnIntervalAria: 'Re-anchor turn interval',
   reinjectSourceTitle: 'Which injection is re-anchored',
   reinjectSourceDescription:
-    'Which injection a re-anchor repeats: "the original anchor" always repeats the one at the start of the session; "the latest one" repeats the most recent injection this plugin made (an anchor placed with `/anchor` counts too, which switches the persona inside this session).',
+    'What a re-anchor injects: "the original anchor" always repeats the one at the start of the session; "the latest one" repeats the most recent injection this plugin made (an anchor placed with `/anchor` counts too); "the current combination" uses the combination on this page, so an edited preset or selection is what the next re-anchor states.',
   reinjectSourceAria: 'Re-anchor source',
   reinjectFirst: 'Original anchor',
   reinjectLatest: 'Latest injection',
+  reinjectRefresh: 'Current combination',
   maxPromptTitle: 'Per-preset limit',
   maxPromptDescription:
     'Maximum number of characters one preset may hold in the editor. Existing longer presets are never truncated automatically.',
@@ -189,13 +196,16 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   maxCombinedDescription:
     'Maximum total characters of the concatenated combination; above it neither anchoring nor re-anchoring injects anything, and a line is written to the log.',
   maxCombinedAria: 'Combined character limit',
-  hintLead: 'The re-anchor repeats whichever injection "which injection is re-anchored" selects: with ',
+  hintLead: 'The re-anchor takes its text from "which injection is re-anchored": with ',
   hintFirst: '"the original anchor"',
   hintMid:
     ' it is always the opening text of this session (read back from the session log, so editing the combination only affects the next new session); with ',
   hintLatest: '"the latest one"',
+  hintMid2:
+    ' it is the most recent injection this plugin made — send the edited combination with /anchor and the re-anchored text changes inside this session; with ',
+  hintRefresh: '"the current combination"',
   hintTail:
-    ' it is the most recent injection this plugin made — send the edited combination with /anchor and the re-anchored text changes inside this session.',
+    ' every re-anchor reads the combination on this page again, so an edited preset or selection needs no new session.',
 
   loading: 'Reading settings…',
   readOnly: 'The settings store is not writable: changes apply to this page only.',
@@ -258,6 +268,7 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   'command.statusReinject': 'Re-anchor: {source} | Turn interval: {interval} | After compaction: {afterCompaction}',
   'command.reinjectSourceLatest': 'the latest injection this plugin made',
   'command.reinjectSourceFirst': 'the original anchor',
+  'command.reinjectSourceRefresh': 'the current combination (read fresh at every re-anchor)',
   'command.intervalOff': 'off',
   'command.intervalTurns': '{turns} turns',
   'command.afterCompactionYes': 'yes',
@@ -277,6 +288,8 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
     '⚓ The same combination is already pending (injected at the first step of your next message); nothing was prepared twice.',
   'command.anchored':
     '⚓ Anchored: {chars} char(s) · {segments} preset(s) ({combination})\nTakes effect at the first step of your next message — it never enters the composer, never opens a turn of its own, and never lengthens a turn already running.\nFrom now on this session re-anchors that same text after a compaction or a turn interval.',
+  'command.anchoredRefresh':
+    '⚓ Anchored: {chars} char(s) · {segments} preset(s) ({combination})\nTakes effect at the first step of your next message — it never enters the composer, never opens a turn of its own, and never lengthens a turn already running.\n"Which injection is re-anchored" is currently "the current combination": a re-anchor does not repeat this text, it takes the combination on the settings page at that moment.',
   'log.overLimit': 'opening prompt is {chars} chars, above the configured {max}-char limit; injection skipped',
 }
 

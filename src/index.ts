@@ -11,13 +11,14 @@
  *    either completed a summarizing compaction or opened
  *    `reinjectTurnInterval` turns since the last injection.
  *
- * Which baseline a re-injection repeats is the user's choice
- * (`reinjectSource`): the session's FIRST injection (the opening prompt, so a
- * hand-sent combination stays a one-off) or the LATEST one (which makes a
- * hand-sent combination a deliberate switch for the rest of the session). The
- * text always comes from the durable log, never from the settings selection, so
- * editing the combination mid-session cannot restate a different prompt into a
- * running conversation.
+ * Which text a re-injection injects is the user's choice (`reinjectSource`):
+ * the session's FIRST injection (the opening prompt, so an anchored combination
+ * stays a one-off), the LATEST one (which makes an anchored combination a
+ * deliberate switch for the rest of the session), or a REFRESH of the current
+ * settings combination (so an edited preset or selection reaches the running
+ * session at its next re-anchor). The first two always come from the durable
+ * log; only `refresh` reads the live settings, which is the one case where a
+ * running conversation can be given text it has never seen.
  *
  * A session that never received an opening prompt never gets one later — no
  * injection is invented mid-conversation, and no re-injection is possible
@@ -56,6 +57,7 @@ import {
   NS,
   combinePromptTexts,
   type AnchorSettings,
+  type ReinjectSource,
 } from './types/anchor-settings.ts'
 import { isDelegatedSession, readInjectionHistory, reinjectionReason } from './trigger.ts'
 import { translate, type AnchorCopyKey, type AnchorLocale, type CopyVars } from './copy.ts'
@@ -98,7 +100,9 @@ const AnchorSettingsSchema = z.object({
     .default(DEFAULT_MAX_COMBINED_CHARS),
   // The union pins the accepted values; a hand-edited document is normalized on
   // the client decode and falls back to the default rather than failing.
-  [FIELD_REINJECT_SOURCE]: z.union([z.const('first'), z.const('latest')]).default(DEFAULT_REINJECT_SOURCE),
+  [FIELD_REINJECT_SOURCE]: z
+    .union([z.const('first'), z.const('latest'), z.const('refresh')])
+    .default(DEFAULT_REINJECT_SOURCE),
   [FIELD_ANCHOR_SUBAGENTS]: z.boolean().default(DEFAULT_ANCHOR_SETTINGS.anchorSubagents),
 })
 
@@ -160,6 +164,13 @@ function describeCombination(settings: AnchorSettings, t: HostTranslate): string
     .join(' → ')
 }
 
+/** The `/anchor status` name of each re-injection source. */
+const REINJECT_SOURCE_COPY_KEY: Readonly<Record<ReinjectSource, AnchorCopyKey>> = {
+  first: 'command.reinjectSourceFirst',
+  latest: 'command.reinjectSourceLatest',
+  refresh: 'command.reinjectSourceRefresh',
+}
+
 /**
  * One `/anchor` invocation: anchors the current combination into the receiving
  * session, or reports the plugin's state for this session.
@@ -202,11 +213,7 @@ function runAnchorCommand(
         max: settings.maxCombinedChars,
       }),
       t('command.statusReinject', {
-        source: t(
-          settings.reinjectSource === 'latest'
-            ? 'command.reinjectSourceLatest'
-            : 'command.reinjectSourceFirst',
-        ),
+        source: t(REINJECT_SOURCE_COPY_KEY[settings.reinjectSource]),
         interval: settings.reinjectTurnInterval === 0
           ? t('command.intervalOff')
           : t('command.intervalTurns', { turns: settings.reinjectTurnInterval }),
@@ -258,7 +265,9 @@ function runAnchorCommand(
   pendingAnchors.set(invocation.agent.session.id, text)
   return {
     kind: 'success',
-    text: t('command.anchored', {
+    // The refresh source decides what a later re-anchor states, so promising
+    // that it reuses this text would be wrong there.
+    text: t(settings.reinjectSource === 'refresh' ? 'command.anchoredRefresh' : 'command.anchored', {
       chars: text.length,
       segments: settings.selectedIds.length,
       combination: describeCombination(settings, t),
@@ -342,7 +351,12 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
     } else {
       // 续注：唯一触发源是日志，注入后引用 seq 前移，天然只触发一次。
       if (reinjectionReason(history, settings, step) === undefined) return decision
-      text = (settings.reinjectSource === 'latest' ? history.latest : history.first)?.text
+      text = settings.reinjectSource === 'refresh'
+        // `refresh` states the CURRENT combination instead of repeating the log:
+        // an edited preset or selection reaches the running session here, and
+        // the same gates below still apply to the refreshed text.
+        ? combinePromptTexts(settings.prompts, settings.selectedIds)
+        : (settings.reinjectSource === 'latest' ? history.latest : history.first)?.text
     }
     if (text === undefined || text === '') return decision
 
@@ -371,6 +385,7 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
 
 export { NS as ANCHOR_NAMESPACE }
 export {
+  REINJECT_SOURCES,
   combinePromptTexts,
   normalizeReinjectSource,
   normalizeSelectedIds,

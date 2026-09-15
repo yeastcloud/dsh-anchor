@@ -125,7 +125,7 @@ export class AnchorSettingsController {
     this.commit(this.next({ maxCombinedChars: value }), [[FIELD_MAX_COMBINED_CHARS, value]])
   }
 
-  /** Choose which injection a re-injection repeats: the session's first or its latest. */
+  /** Choose what a re-anchor injects: the session's first injection, its latest, or the current combination. */
   setReinjectSource(reinjectSource: ReinjectSource): void {
     const value = normalizeReinjectSource(reinjectSource)
     this.commit(this.next({ reinjectSource: value }), [[FIELD_REINJECT_SOURCE, value]])

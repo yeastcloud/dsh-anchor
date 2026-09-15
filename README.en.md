@@ -33,7 +33,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🧩 **Composable presets** | Build up to 100 presets, check any subset, and inject them joined in the order you drag them into. |
 | ⚓ **Re-anchor after compaction** | Watches for `compaction/summary` (automatic pressure compaction or `/compact`) and re-anchors at the next step boundary — including mid-turn, so the very next request carries it. |
 | 🔁 **Re-anchor by turn count** | Re-anchors at the start of a turn once N turns (default 20, configurable, 0 disables) have passed since the last injection. |
-| 🎯 **Selectable re-anchor source** | `first` keeps repeating the session's opening text; `latest` repeats the newest injection of this plugin — for example one you anchored later with `/anchor`, which switches the persona inside that session. |
+| 🎯 **Selectable re-anchor source** | Three ways: `first` keeps repeating the session's opening text; `latest` repeats the newest injection of this plugin (for example one you anchored later with `/anchor`); **`refresh` re-anchors the combination the settings page holds right now** — edit a preset or change the selection and the running session picks up the new text at its next re-anchor. |
 | 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
 | 🐋 **Subagents stay unanchored** | Delegated child sessions get **no anchor and no re-anchor** by default: the persona and discipline are for the session you steer yourself, and a child replaying them only spends tokens. Turn it on in the settings page to treat children the same. |
@@ -90,7 +90,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 | `reinjectTurnInterval` | `20` | Turn interval between re-anchors (0–10000, 0 disables) |
 | `maxPromptChars` | `8000` | Authoring limit per preset; never truncates stored text |
 | `maxCombinedChars` | `8000` | Injection gate for the combined text; above it nothing is injected and a warning is logged |
-| `reinjectSource` | `'first'` | Which injection a re-anchor repeats: `first` or `latest` |
+| `reinjectSource` | `'first'` | Which injection a re-anchor repeats: `first`, `latest` or `refresh` (the current combination) |
 | `anchorSubagents` | `false` | Whether delegated (subagent) sessions are anchored too — off by default |
 
 ## FAQ
@@ -104,6 +104,17 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 **What counts as an injection?** Only messages this plugin sourced itself: the opening anchor, a compaction or turn-interval re-anchor, and an anchor you placed with `/anchor`. Text you type or paste never counts, and no content comparison is involved.
 
 **Does it send anything anywhere?** No. It never touches the network; the only file it writes is its own namespace in `~/.dsh/settings.yaml`.
+
+## Roadmap
+
+Finished items stay listed (✅ + strikethrough) with the release that shipped them.
+
+|  | Planned | Shipped in | Date |
+| --- | --- | --- | --- |
+| ✅ | ~~Settings-page i18n: the UI and the command output follow the DSH locale (zh / en)~~ | `v0.7.0` | 2026-09-15 |
+| ✅ | ~~A third re-anchor source that refreshes the current combination~~ | `v0.9.0` | 2026-09-15 |
+| ⬜ | Trigger on context-token pressure, as a second yardstick next to the turn interval (**pending confirmation that the harness exposes a token-accounting seam**; drop the item if it does not) | — | — |
+| ⬜ | Preset import / export (sync your instruction library across machines) | — | — |
 
 ## Development
 

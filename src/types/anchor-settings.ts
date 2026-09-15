@@ -33,13 +33,21 @@ export interface AnchorPrompt {
 }
 
 /**
- * Which of this plugin's injections a re-injection repeats.
+ * What text a re-anchor injects.
  *  - `first`: the earliest injection of the session (the opening prompt);
- *  - `latest`: the most recent one, which includes a combination sent by hand
- *    with the composer dock button — inside that session, a deliberate switch.
- * Both read the same set of injections, so they differ only after a manual send.
+ *  - `latest`: the most recent one, which includes a combination anchored with
+ *    `/anchor` — inside that session, a deliberate switch;
+ *  - `refresh`: the CURRENT combination of the live settings
+ *    (`combinePromptTexts(settings.prompts, settings.selectedIds)`), so editing
+ *    presets or the selection changes what the next re-anchor states.
+ * The first two read the injections already in the durable log, so they differ
+ * only after a later one; `refresh` reads the settings instead and can therefore
+ * differ from every injection the session has seen.
  */
-export type ReinjectSource = 'first' | 'latest'
+export type ReinjectSource = 'first' | 'latest' | 'refresh'
+
+/** Every accepted re-injection source, in the order the settings page offers them. */
+export const REINJECT_SOURCES = ['first', 'latest', 'refresh'] as const
 
 export interface AnchorSettings {
   enabled: boolean
@@ -123,7 +131,7 @@ export function normalizeTextLimit(value: number, fallback: number): number {
 
 /** Narrow one raw value into the accepted re-injection source. */
 export function normalizeReinjectSource(value: unknown): ReinjectSource {
-  return value === 'latest' ? 'latest' : DEFAULT_REINJECT_SOURCE
+  return REINJECT_SOURCES.find((source) => source === value) ?? DEFAULT_REINJECT_SOURCE
 }
 
 /** Dedupe the selection, drop ids the library no longer holds, and cap its length. */
