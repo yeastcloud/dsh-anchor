@@ -4,9 +4,19 @@
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-15
+
+### Fixed
+
+- **`cordis.patch.yml` 的包名未加引号，导致 profile 启动失败**：`@` 是 YAML 保留字符，`name: @yeastcloud/dsh-anchor` 这种裸标量非法，Harness 解析 overlay 时会直接抛 `bad indentation of a mapping entry`，整个 profile 起不来（0.4.1 装了也启动不了）。改为 `name: '@yeastcloud/dsh-anchor'`。
+
+### Added
+
+- `tests/patch-manifest.spec.ts`：解析 bundle patch、断言它注入的插件名等于本包 `package.json` 的 `name`，并检查 `files` 白名单含 `lib` / `cordis.patch.yml` / `LICENSE`。这类"只有启动时才暴露"的错误从此在 CI 就被拦住（已验证：坏形式会红，修好后全绿）。
+
 ### Changed
 
-- 发版工作流的 GitHub Release 笔记改为取本文件对应的版本段落（原先用 `--generate-notes`，而本项目直推 main、没有 PR 可汇总，结果只剩一个 compare 链接）。
+- 发版工作流的 GitHub Release 笔记改为取本文件对应的版本段落（原先用 `--generate-notes`，而本项目直推 main、没有 PR 可汇总，结果只剩一个 compare 链接）；缺段落时退回自动生成并发 `::warning::`。
 - 发版工作流修复：改用**注记 tag** 并显式推送（`--follow-tags` 不推轻量 tag）、新增 `mode=stage|direct` 与 `bump=none`、GitHub Release 创建改为幂等。
 
 ## [0.4.1] — 2026-09-15
