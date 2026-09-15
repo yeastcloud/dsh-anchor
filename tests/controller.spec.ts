@@ -8,10 +8,14 @@ import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { AnchorSettingsController } from '../src/client/settings-controller.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
+  FIELD_ANCHOR_SUBAGENTS,
   FIELD_ENABLED,
   FIELD_MAX_PROMPT_CHARS,
   FIELD_PROMPTS,
+  FIELD_REINJECT_AFTER_COMPACTION,
   FIELD_REINJECT_SOURCE,
+  FIELD_REINJECT_TOKEN_THRESHOLD,
+  FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
   MIN_TEXT_LIMIT,
   type AnchorSettings,
@@ -94,6 +98,18 @@ describe('AnchorSettingsController', () => {
     expect(harness.sets).toEqual([[FIELD_MAX_PROMPT_CHARS, MIN_TEXT_LIMIT]])
   })
 
+  it('writes the token threshold alone, clamping what the field can hold', async () => {
+    const harness = mount()
+    harness.controller.setReinjectTokenThreshold(120_000)
+    await harness.settle()
+    expect(harness.sets).toEqual([[FIELD_REINJECT_TOKEN_THRESHOLD, 120_000]])
+
+    harness.sets.length = 0
+    harness.controller.setReinjectTokenThreshold(-1)
+    await harness.settle()
+    expect(harness.sets).toEqual([[FIELD_REINJECT_TOKEN_THRESHOLD, 0]])
+  })
+
   it('prunes the selection when a preset is deleted', async () => {
     const harness = mount({ selectedIds: ['a', 'b'] })
     harness.controller.deletePrompt('a')
@@ -126,8 +142,10 @@ describe('AnchorSettingsController', () => {
         FIELD_ENABLED,
         FIELD_SELECTED_IDS,
         FIELD_PROMPTS,
-        'reinjectAfterCompaction',
-        'reinjectTurnInterval',
+        FIELD_REINJECT_AFTER_COMPACTION,
+        FIELD_REINJECT_TURN_INTERVAL,
+        FIELD_REINJECT_TOKEN_THRESHOLD,
+        FIELD_ANCHOR_SUBAGENTS,
         FIELD_MAX_PROMPT_CHARS,
         'maxCombinedChars',
         FIELD_REINJECT_SOURCE,

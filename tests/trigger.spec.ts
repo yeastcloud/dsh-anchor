@@ -1,11 +1,13 @@
 /**
- * Trigger decisions read only the durable log, so they are testable without an
- * agent: every case below is one log shape plus the settings that gate it.
+ * Trigger decisions read the durable log — plus, for the token trigger only, one
+ * measured reading and one armed flag per session — so they are testable without
+ * an agent: every case below is one log shape plus the settings that gate it.
  */
 
 import { describe, expect, it } from 'vitest'
 import {
   isDelegatedSession,
+  pressureStep,
   readInjectionHistory,
   reinjectionReason,
   type AnchorLogEvent,
@@ -47,7 +49,9 @@ function compactionSummary(seq: number): AnchorLogEvent {
   return { type: 'compaction/summary', seq, data: { summary: [{ type: 'text', text: '摘要' }] } }
 }
 
-const EVERY = { reinjectAfterCompaction: true, reinjectTurnInterval: 20 }
+const EVERY = { reinjectAfterCompaction: true, reinjectTurnInterval: 20, reinjectTokenThreshold: 0 }
+/** The same policy with the token trigger on. */
+const WITH_PRESSURE = { ...EVERY, reinjectTokenThreshold: 1000 }
 
 /** One event carrying the provenance `dsh-subagent` stamps on a delegated child. */
 function delegatedEvent(seq: number, type: string): AnchorLogEvent {
@@ -184,5 +188,49 @@ describe('reinjectionReason', () => {
     expect(reinjectionReason(longSession, { ...EVERY, reinjectTurnInterval: 0 }, 1)).toBeUndefined()
     const never = readInjectionHistory([human('你好', 0), turnStart(1)], NS)
     expect(reinjectionReason(never, EVERY, 1)).toBeUndefined()
+  })
+
+  it('fires on a pressure crossing at a turn boundary only', () => {
+    // One turn opened since the newest injection, and the interval is far away:
+    // the pressure crossing is the only trigger that can fire here.
+    const crossed = { crossed: true, armed: true }
+    const oneTurn = readInjectionHistory([ours('锚文', 0), turnStart(1)], NS)
+    expect(reinjectionReason(oneTurn, WITH_PRESSURE, 1, crossed)).toBe('pressure')
+    expect(reinjectionReason(oneTurn, WITH_PRESSURE, 2, crossed)).toBeUndefined()
+  })
+
+  it('ignores a pressure crossing while the turn is the one that injected', () => {
+    // No turn has opened since the newest injection, so this is not a next turn.
+    const sameTurn = readInjectionHistory([ours('锚文', 0)], NS)
+    expect(reinjectionReason(sameTurn, WITH_PRESSURE, 1, { crossed: true, armed: true })).toBeUndefined()
+  })
+
+  it('lets the compaction trigger win the step, and honours a disabled threshold', () => {
+    const oneTurn = readInjectionHistory([ours('锚文', 0), turnStart(1)], NS)
+    expect(reinjectionReason(compacted, WITH_PRESSURE, 1, { crossed: true, armed: true })).toBe('compaction')
+    expect(reinjectionReason(oneTurn, EVERY, 1, { crossed: true, armed: true })).toBeUndefined()
+    expect(reinjectionReason(oneTurn, WITH_PRESSURE, 1, { crossed: false, armed: false })).toBeUndefined()
+  })
+})
+
+describe('pressureStep', () => {
+  const T = 1000
+
+  it('never crosses while the threshold is 0 or nothing was measured', () => {
+    expect(pressureStep(true, 999_999, 0)).toEqual({ crossed: false, armed: true })
+    expect(pressureStep(true, undefined, T)).toEqual({ crossed: false, armed: true })
+    expect(pressureStep(false, undefined, T)).toEqual({ crossed: false, armed: false })
+  })
+
+  it('re-arms on a reading below the threshold', () => {
+    expect(pressureStep(true, T - 1, T)).toEqual({ crossed: false, armed: true })
+    expect(pressureStep(false, T - 1, T)).toEqual({ crossed: false, armed: true })
+  })
+
+  it('crosses only once: an armed reading at or above fires, a disarmed one stays quiet', () => {
+    expect(pressureStep(true, T, T)).toEqual({ crossed: true, armed: true })
+    expect(pressureStep(true, 10 * T, T)).toEqual({ crossed: true, armed: true })
+    // The level test this rule replaces would fire again here.
+    expect(pressureStep(false, 10 * T, T)).toEqual({ crossed: false, armed: false })
   })
 })

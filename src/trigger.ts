@@ -3,8 +3,9 @@
  *
  * A session's opening prompt decays: a long turn chain pushes it far behind the
  * live context, and a summarizing compaction can shadow it out of the surface
- * entirely. This module reads the durable log and decides when a baseline has
- * to be injected again.
+ * entirely. This module reads the durable log — and, for the pressure trigger
+ * only, one measurement the caller supplies — and decides when a baseline has to
+ * be injected again.
  *
  * Two kinds of injection count:
  *  - automatic ones this plugin appended (`source.plugin` = the namespace);
@@ -14,9 +15,15 @@
  *    it — the client's record is what keeps a plain user message from being
  *    mistaken for one.
  *
- * No process-local state: the log is the only source of truth, so a resume,
- * restart, or replay reaches the same decision, and a re-injection cannot
- * repeat (its own message moves the reference seq forward on the next pass).
+ * No process-local state for the log-driven triggers: the log is the only
+ * source of truth, so a resume, restart, or replay reaches the same decision,
+ * and a re-injection cannot repeat (its own message moves the reference seq
+ * forward on the next pass).
+ *
+ * The one exception is the context-pressure trigger, whose input is a
+ * measurement rather than an event: it is EDGE-triggered on one armed flag per
+ * session ({@link pressureStep}), because a level test would re-inject on every
+ * following turn for as long as the context stays heavy.
  *
  * @module @yeastcloud/dsh-anchor/trigger
  */
@@ -50,14 +57,68 @@ export interface InjectionHistory {
   readonly turnsSinceLastInjection: number
 }
 
-/** Settings that gate re-injection. */
+/**
+ * Settings that gate re-injection.
+ *
+ * The first two are read from the durable log alone; `reinjectTokenThreshold`
+ * needs a measurement of the live session, so the caller supplies one
+ * ({@link PressureStep}) alongside the history.
+ */
 export interface ReinjectionPolicy {
   readonly reinjectAfterCompaction: boolean
   readonly reinjectTurnInterval: number
+  readonly reinjectTokenThreshold: number
 }
 
 /** Why the baseline is being injected again. */
-export type ReinjectionReason = 'compaction' | 'turns'
+export type ReinjectionReason = 'compaction' | 'turns' | 'pressure'
+
+/**
+ * One reading's effect on one session's pressure trigger.
+ *
+ * `armed` is per session and lives in the process, not in the log: it is true
+ * for a session this process has not measured yet, and a profile restart
+ * therefore re-arms every session. A restarted process cannot know whether the
+ * crossing it is looking at already fired, so it may re-anchor once and then
+ * hold the once-per-crossing rule again.
+ */
+export interface PressureStep {
+  /** Whether this reading crosses the threshold now: armed, measured, at or above it. */
+  readonly crossed: boolean
+  /**
+   * The armed flag the session remembers when this step injects nothing. A
+   * crossing leaves it armed, and the injection path disarms it, so a gate that
+   * refuses the injection leaves the crossing pending instead of swallowing it.
+   */
+  readonly armed: boolean
+}
+
+/**
+ * Fold one context-pressure reading into a session's armed flag.
+ *
+ * Edge-triggered with re-arming, never a level test: a reading at or above the
+ * threshold fires once and stays disarmed for as long as it stays there, so a
+ * context that is merely large cannot re-anchor turn after turn. Only a reading
+ * strictly below the threshold re-arms the trigger, which is what makes any
+ * pruning that brings the context back down — a compaction above all — start a
+ * new crossing. A session with no reading at all (no token meter mounted, no
+ * provider usage reported yet) changes nothing: only a measurement can arm or
+ * fire the trigger.
+ *
+ * @param armed - the flag this session had before the reading.
+ * @param tokens - the current context pressure, or undefined when unmeasured.
+ * @param threshold - configured token threshold; 0 keeps the trigger off.
+ * @returns the crossing verdict and the flag to remember for the next step.
+ */
+export function pressureStep(
+  armed: boolean,
+  tokens: number | undefined,
+  threshold: number,
+): PressureStep {
+  if (threshold <= 0 || tokens === undefined) return { crossed: false, armed }
+  if (tokens >= threshold) return { crossed: armed, armed }
+  return { crossed: false, armed: true }
+}
 
 /** Event type a summarizing compaction appends once its summary is committed. */
 const COMPACTION_SUMMARY = 'compaction/summary'
@@ -169,18 +230,26 @@ export function readInjectionHistory(
  *
  * Compaction fires on the first step boundary after it lands, including inside
  * a running turn, so the very next model request carries the prompt again. The
- * turn interval is a turn-boundary trigger: it fires on step 1 only, so a long
- * session re-injects alongside the user's message rather than mid-tool-loop.
+ * turn interval and the token threshold are turn-boundary triggers: both fire
+ * on step 1 only, so a long or a heavy session re-injects alongside the user's
+ * message rather than mid-tool-loop.
+ *
+ * The pressure crossing is judged at step 1 of a turn that opened AFTER the last
+ * injection (`turnsSinceLastInjection > 0`): the trigger never extends the turn
+ * already running, never injects at a step no input opened, and never fires
+ * twice for one turn — including the turn that injected the crossing's text.
  *
  * @param history - facts read from the durable log.
  * @param policy - the settings that gate re-injection.
  * @param step - the step the loop is proposing.
+ * @param pressure - this step's pressure reading, when the caller took one.
  * @returns the trigger that fired, or undefined when nothing must be injected.
  */
 export function reinjectionReason(
   history: InjectionHistory,
   policy: ReinjectionPolicy,
   step: number,
+  pressure?: PressureStep,
 ): ReinjectionReason | undefined {
   if (history.lastInjectionSeq < 0) return undefined
   if (policy.reinjectAfterCompaction && history.compactedAfterLastInjection) return 'compaction'
@@ -190,6 +259,14 @@ export function reinjectionReason(
     && history.turnsSinceLastInjection >= policy.reinjectTurnInterval
   ) {
     return 'turns'
+  }
+  if (
+    policy.reinjectTokenThreshold > 0
+    && pressure?.crossed === true
+    && step === 1
+    && history.turnsSinceLastInjection > 0
+  ) {
+    return 'pressure'
   }
   return undefined
 }

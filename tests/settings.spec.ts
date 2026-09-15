@@ -12,13 +12,16 @@ import {
   DEFAULT_MAX_COMBINED_CHARS,
   DEFAULT_MAX_PROMPT_CHARS,
   DEFAULT_REINJECT_SOURCE,
+  DEFAULT_REINJECT_TOKEN_THRESHOLD,
   DEFAULT_REINJECT_TURN_INTERVAL,
   MAX_PROMPTS,
+  MAX_REINJECT_TOKEN_THRESHOLD,
   MAX_SELECTED_IDS,
   MAX_TEXT_LIMIT,
   MIN_TEXT_LIMIT,
   normalizeReinjectSource,
   normalizeTextLimit,
+  normalizeTokenThreshold,
   normalizeTurnInterval,
   parseAnchorSettings,
 } from '../src/types/anchor-settings.ts'
@@ -61,8 +64,20 @@ describe('parseAnchorSettings', () => {
     const parsed = parseAnchorSettings({ enabled: true, selectedId: 'a', prompts: [prompt('a')] })
     expect(parsed?.reinjectAfterCompaction).toBe(DEFAULT_ANCHOR_SETTINGS.reinjectAfterCompaction)
     expect(parsed?.reinjectTurnInterval).toBe(DEFAULT_REINJECT_TURN_INTERVAL)
+    expect(parsed?.reinjectTokenThreshold).toBe(DEFAULT_REINJECT_TOKEN_THRESHOLD)
     expect(parsed?.maxPromptChars).toBe(DEFAULT_MAX_PROMPT_CHARS)
     expect(parsed?.maxCombinedChars).toBe(DEFAULT_MAX_COMBINED_CHARS)
+  })
+
+  it('decodes the token threshold, keeping the pressure trigger off by default', () => {
+    expect(DEFAULT_ANCHOR_SETTINGS.reinjectTokenThreshold).toBe(0)
+    const parsed = parseAnchorSettings({
+      enabled: true,
+      selectedIds: [],
+      prompts: [prompt('a')],
+      reinjectTokenThreshold: 120_000,
+    })
+    expect(parsed?.reinjectTokenThreshold).toBe(120_000)
   })
 
   it('keeps explicit limit values, clamps out-of-range ones, and defaults garbage', () => {
@@ -117,6 +132,14 @@ describe('limit normalizers', () => {
     expect(normalizeTurnInterval(-5)).toBe(0)
     expect(normalizeTurnInterval(3.9)).toBe(3)
     expect(normalizeTurnInterval(Number.NaN)).toBe(DEFAULT_REINJECT_TURN_INTERVAL)
+  })
+
+  it('clamps token thresholds, falling back on the OFF value', () => {
+    expect(normalizeTokenThreshold(-5)).toBe(0)
+    expect(normalizeTokenThreshold(1500.7)).toBe(1500)
+    expect(normalizeTokenThreshold(1e12)).toBe(MAX_REINJECT_TOKEN_THRESHOLD)
+    expect(normalizeTokenThreshold(Number.NaN)).toBe(DEFAULT_REINJECT_TOKEN_THRESHOLD)
+    expect(normalizeTokenThreshold(Number.POSITIVE_INFINITY)).toBe(DEFAULT_REINJECT_TOKEN_THRESHOLD)
   })
 
   it('clamps character limits into the accepted range', () => {

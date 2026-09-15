@@ -32,6 +32,22 @@ interface Harness {
   handler: (payload: unknown, next: () => Promise<unknown>) => Promise<unknown>
   /** Replace the settings the host half reads on the next step. */
   setSettings: (settings: AnchorSettings) => void
+  /** Replace the context pressure the trigger reads on the next step. */
+  setPressure: (tokens: number | undefined) => void
+}
+
+/**
+ * Where the mounted plugin gets its context pressure.
+ *  - `probe`: an injected reader answering with `setPressure` (the default);
+ *  - `meter`: the plugin's real projection path, against a stubbed registry;
+ *  - `absent`: the real path with no meter mounted at all.
+ */
+type PressureSource = 'probe' | 'meter' | 'absent'
+
+interface MountOptions {
+  pressure?: PressureSource
+  /** Value the stubbed `contextPressure` projection reports in `meter` mode. */
+  projection?: { pressureTokens?: number; projectedTokens?: number }
 }
 
 /** One durable event through the plugin's own eyes. */
@@ -61,8 +77,10 @@ function claim(text: string): ClaimedMessage {
 }
 
 /** Mount the plugin against a stub context and return the captured listener. */
-function mount(): Harness {
+function mount(options: MountOptions = {}): Harness {
+  const source = options.pressure ?? 'probe'
   let current: AnchorSettings = { ...DEFAULT_ANCHOR_SETTINGS }
+  let pressure: number | undefined
   let handler: Harness['handler'] | undefined
   const ctx = {
     settings: {
@@ -81,13 +99,24 @@ function mount(): Harness {
     on: (event: string, listener: Harness['handler']) => {
       if (event === 'agent/pre-step') handler = listener
     },
+    // The plugin reads the token meter through this registry, so leaving it out
+    // is exactly what a profile without `dsh-token-meter` looks like.
+    get: (name: string) => {
+      if (name !== 'sessionProjections' || source !== 'meter') return undefined
+      return { snapshot: () => ({ values: { contextPressure: options.projection } }) }
+    },
   }
-  apply(ctx as unknown as Context)
+  apply(ctx as unknown as Context, undefined, {
+    readPressure: source === 'probe' ? () => pressure : undefined,
+  })
   if (handler === undefined) throw new Error('agent/pre-step listener was not registered')
   return {
     handler,
     setSettings: (settings) => {
       current = settings
+    },
+    setPressure: (tokens) => {
+      pressure = tokens
     },
   }
 }
@@ -338,5 +367,124 @@ describe('re-injection source', () => {
       claimed: [claim('继续')],
     })
     expect(injectedText(result)).toBeUndefined()
+  })
+})
+
+describe('context-token pressure', () => {
+  const THRESHOLD = 1000
+  const withThreshold = (patch: Partial<AnchorSettings> = {}): AnchorSettings =>
+    settingsWith(['a'], { reinjectTokenThreshold: THRESHOLD, ...patch })
+  /** The opening anchor, then two turns opened since it. */
+  const twoTurns = [ours('锚文原文', 0), turnStart(1), turnStart(2)]
+
+  it('never fires while the threshold is 0', async () => {
+    const harness = mount()
+    harness.setSettings(settingsWith(['a'], { reinjectTokenThreshold: 0 }))
+    harness.setPressure(999_999)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBeUndefined()
+  })
+
+  it('stays quiet while the reading is below the threshold', async () => {
+    const harness = mount()
+    harness.setSettings(withThreshold())
+    harness.setPressure(THRESHOLD - 1)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBeUndefined()
+  })
+
+  it('re-anchors at the first step of a later turn, never mid-turn', async () => {
+    const harness = mount()
+    harness.setSettings(withThreshold())
+    harness.setPressure(50_000)
+    // A crossing that happens while a turn runs waits for the next turn instead
+    // of lengthening the one in flight.
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, step: 4, claimed: [] }))).toBeUndefined()
+    expect(injectedText(await step(harness, twoTurns, { turn: 4, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+
+  it('fires once per crossing: a context that stays heavy stays quiet', async () => {
+    const harness = mount()
+    harness.setSettings(withThreshold())
+    harness.setPressure(50_000)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBe('锚文原文')
+
+    const anchored = [...twoTurns, ours('锚文原文', 3), turnStart(4)]
+    expect(injectedText(await step(harness, anchored, { turn: 4, claimed: [claim('继续')] }))).toBeUndefined()
+    expect(injectedText(await step(harness, anchored, { turn: 5, claimed: [claim('继续')] }))).toBeUndefined()
+    expect(injectedText(await step(harness, anchored, { turn: 6, claimed: [claim('继续')] }))).toBeUndefined()
+  })
+
+  it('re-arms when a compaction drops the reading back below the threshold', async () => {
+    const harness = mount()
+    // The compaction trigger is off, so the drop itself injects nothing and the
+    // pressure trigger alone owns the way back up.
+    harness.setSettings(withThreshold({ reinjectAfterCompaction: false }))
+    harness.setPressure(9000)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBe('锚文原文')
+
+    const compacted = [...twoTurns, ours('锚文原文', 3), compactionSummary(4), turnStart(5)]
+    harness.setPressure(200)
+    expect(injectedText(await step(harness, compacted, { turn: 6, step: 3, claimed: [] }))).toBeUndefined()
+    harness.setPressure(1200)
+    expect(injectedText(await step(harness, compacted, { turn: 6, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+
+  it('never fires in the turn that already injected the baseline', async () => {
+    // The reference seq moved, so the newest injection is the step being served
+    // (a retried step, for example): the turn is not a next turn yet.
+    const harness = mount()
+    harness.setSettings(withThreshold())
+    harness.setPressure(50_000)
+    expect(
+      injectedText(await step(harness, [ours('锚文原文', 0)], { turn: 1, claimed: [claim('继续')] })),
+    ).toBeUndefined()
+  })
+
+  it('keeps the crossing pending when a gate refuses the injection', async () => {
+    const harness = mount()
+    harness.setSettings(withThreshold({ maxCombinedChars: 3 }))
+    harness.setPressure(50_000)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBeUndefined()
+
+    harness.setSettings(withThreshold())
+    expect(injectedText(await step(harness, twoTurns, { turn: 4, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+
+  it('takes its text from the selected re-anchor source, like the other triggers', async () => {
+    const harness = mount()
+    harness.setSettings(withThreshold({ reinjectSource: 'refresh', selectedIds: ['b'] }))
+    harness.setPressure(50_000)
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBe('后来改选的预设')
+  })
+
+  it('reads the figure the composer shows from the mounted meter', async () => {
+    const harness = mount({
+      pressure: 'meter',
+      projection: { pressureTokens: 20_000, projectedTokens: 30_000 },
+    })
+    harness.setSettings(withThreshold())
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+
+  it('prefers the next request projection over the last provider sample', async () => {
+    const harness = mount({
+      pressure: 'meter',
+      projection: { pressureTokens: 20_000, projectedTokens: 500 },
+    })
+    harness.setSettings(withThreshold())
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBeUndefined()
+  })
+
+  it('falls back to the provider sample before any projection exists', async () => {
+    const harness = mount({ pressure: 'meter', projection: { pressureTokens: 5000 } })
+    harness.setSettings(withThreshold())
+    expect(injectedText(await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] }))).toBe('锚文原文')
+  })
+
+  it('is inert, and silent, when no token meter is mounted', async () => {
+    const harness = mount({ pressure: 'absent' })
+    harness.setSettings(withThreshold())
+    const result = await step(harness, twoTurns, { turn: 3, claimed: [claim('继续')] })
+    expect(injectedText(result)).toBeUndefined()
+    expect(result.messages).toHaveLength(1)
   })
 })

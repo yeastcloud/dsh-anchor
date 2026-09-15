@@ -259,7 +259,7 @@ describe('/anchor', () => {
   })
 
   it('reports status without injecting anything', () => {
-    const harness = mount({ reinjectSource: 'latest', reinjectTurnInterval: 7 })
+    const harness = mount({ reinjectSource: 'latest', reinjectTurnInterval: 7, reinjectTokenThreshold: 120_000 })
     harness.setLog([
       {
         type: 'user/message',
@@ -274,6 +274,7 @@ describe('/anchor', () => {
     expect(result.text).toContain('最近一条本插件注入')
     expect(result.text).toContain('seq 3')
     expect(result.text).toContain('1 轮')
+    expect(result.text).toContain('token 阈值：120000 tokens')
     expect(harness.queued).toHaveLength(0)
   })
 
@@ -283,7 +284,7 @@ describe('/anchor', () => {
     expect(result.kind).toBe('success')
     expect(result.text).toContain('⚓ Anchor status')
     expect(result.text).toContain('Master switch: on | Combination: 甲预设 (1 char(s) / limit 8000)')
-    expect(result.text).toContain('Re-anchor: the latest injection this plugin made | Turn interval: 7 turns | After compaction: yes')
+    expect(result.text).toContain('Re-anchor: the latest injection this plugin made | Turn interval: 7 turns | Token threshold: off | After compaction: yes')
     expect(result.text).toContain('This session: no injection yet')
     expect(result.text).not.toContain('定锚')
   })

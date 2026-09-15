@@ -8,8 +8,9 @@
  *  - session start: the combined text of the ordered selection, once, on the
  *    very first step of the session's OWN first turn (`turn === 1`);
  *  - re-injection: a baseline already in the durable log, when the session
- *    either completed a summarizing compaction or opened
- *    `reinjectTurnInterval` turns since the last injection.
+ *    either completed a summarizing compaction, opened
+ *    `reinjectTurnInterval` turns since the last injection, or crossed the
+ *    `reinjectTokenThreshold` context pressure at the first step of a new turn.
  *
  * Which text a re-injection injects is the user's choice (`reinjectSource`):
  * the session's FIRST injection (the opening prompt, so an anchored combination
@@ -19,6 +20,14 @@
  * session at its next re-anchor). The first two always come from the durable
  * log; only `refresh` reads the live settings, which is the one case where a
  * running conversation can be given text it has never seen.
+ *
+ * The pressure trigger is the one input that is a measurement rather than a log
+ * event: it reads the official token meter's `contextPressure` projection
+ * (`./meter.ts`, the same figure the composer shows) and keeps one armed flag
+ * per session, so a context that stays above the threshold re-anchors once
+ * instead of turn after turn ({@link pressureStep}). Everything else about it —
+ * the step-1 boundary, the claimed-input requirement, `reinjectSource`, and the
+ * combined-character gate — is what the log-driven triggers already use.
  *
  * A session that never received an opening prompt never gets one later — no
  * injection is invented mid-conversation, and no re-injection is possible
@@ -38,6 +47,7 @@ import {
   DEFAULT_MAX_COMBINED_CHARS,
   DEFAULT_MAX_PROMPT_CHARS,
   DEFAULT_REINJECT_SOURCE,
+  DEFAULT_REINJECT_TOKEN_THRESHOLD,
   DEFAULT_REINJECT_TURN_INTERVAL,
   FIELD_ENABLED,
   FIELD_MAX_COMBINED_CHARS,
@@ -46,11 +56,13 @@ import {
   FIELD_REINJECT_AFTER_COMPACTION,
   FIELD_ANCHOR_SUBAGENTS,
   FIELD_REINJECT_SOURCE,
+  FIELD_REINJECT_TOKEN_THRESHOLD,
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
   MAX_PROMPTS,
   MAX_PROMPT_ID_CHARS,
   MAX_PROMPT_NAME_CHARS,
+  MAX_REINJECT_TOKEN_THRESHOLD,
   MAX_REINJECT_TURN_INTERVAL,
   MAX_SELECTED_IDS,
   MAX_TEXT_LIMIT,
@@ -60,7 +72,14 @@ import {
   type AnchorSettings,
   type ReinjectSource,
 } from './types/anchor-settings.ts'
-import { isDelegatedSession, readInjectionHistory, reinjectionReason } from './trigger.ts'
+import {
+  isDelegatedSession,
+  pressureStep,
+  readInjectionHistory,
+  reinjectionReason,
+  type PressureStep,
+} from './trigger.ts'
+import { meterPressure, type PressureReader } from './meter.ts'
 import { translate, type AnchorCopyKey, type AnchorLocale, type CopyVars } from './copy.ts'
 
 export const name = NS
@@ -93,6 +112,11 @@ const AnchorSettingsSchema = z.object({
     .min(0)
     .max(MAX_REINJECT_TURN_INTERVAL)
     .default(DEFAULT_REINJECT_TURN_INTERVAL),
+  [FIELD_REINJECT_TOKEN_THRESHOLD]: z
+    .number()
+    .min(0)
+    .max(MAX_REINJECT_TOKEN_THRESHOLD)
+    .default(DEFAULT_REINJECT_TOKEN_THRESHOLD),
   [FIELD_MAX_PROMPT_CHARS]: z.number().min(MIN_TEXT_LIMIT).max(MAX_TEXT_LIMIT).default(DEFAULT_MAX_PROMPT_CHARS),
   [FIELD_MAX_COMBINED_CHARS]: z
     .number()
@@ -116,6 +140,11 @@ export type HostEnvironment = Readonly<Record<string, string | undefined>>
 export interface HostOptions {
   /** Environment read for the output locale; defaults to `process.env`. */
   readonly env?: HostEnvironment
+  /**
+   * Context-pressure source for the token trigger; defaults to the official
+   * token meter ({@link meterPressure}).
+   */
+  readonly readPressure?: PressureReader
 }
 
 /** Translator bound to one locale, as every host-side message uses it. */
@@ -216,8 +245,11 @@ function runAnchorCommand(
       t('command.statusReinject', {
         source: t(REINJECT_SOURCE_COPY_KEY[settings.reinjectSource]),
         interval: settings.reinjectTurnInterval === 0
-          ? t('command.intervalOff')
+          ? t('command.policyOff')
           : t('command.intervalTurns', { turns: settings.reinjectTurnInterval }),
+        threshold: settings.reinjectTokenThreshold === 0
+          ? t('command.policyOff')
+          : t('command.thresholdTokens', { tokens: settings.reinjectTokenThreshold }),
         afterCompaction: t(
           settings.reinjectAfterCompaction
             ? 'command.afterCompactionYes'
@@ -279,13 +311,23 @@ function runAnchorCommand(
 /**
  * @param ctx - host context providing the settings service (and, optionally, commands).
  * @param _config - unused: this plugin reads no host configuration.
- * @param options - locale seam for host-side output; tests inject an environment instead of mutating the process one.
+ * @param options - seams for host-side output and for the context-pressure reading; tests inject both instead of touching the process environment or a live profile.
  */
 export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}): void {
   const locale = pickHostLocale(options.env)
   const t: HostTranslate = (key, vars) => translate(locale, key, vars)
+  const readPressure: PressureReader =
+    options.readPressure ?? ((session) => meterPressure(ctx, session))
   /** Manual anchors awaiting the first step of the next turn, keyed by session. */
   const pendingAnchors = new Map<string, string>()
+  /**
+   * Armed flag of the pressure trigger, keyed by session: true means the next
+   * reading at or above the threshold is a new crossing. A session this process
+   * has not measured yet is armed — after a restart the plugin cannot know
+   * whether the crossing it sees already fired, and one re-anchor is the
+   * bounded cost of that (see `PressureStep`).
+   */
+  const pressureArmed = new Map<string, boolean>()
   let live: () => AnchorSettings = () => DEFAULT_ANCHOR_SETTINGS
   /** Last over-limit state reported, so a long session warns once per change, not per step. */
   let warnedOverLimit: string | undefined
@@ -342,6 +384,7 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
     const history = readInjectionHistory(events, NS)
 
     let text: string | undefined
+    let crossing = false
     if (history.first === undefined) {
       // Session start only: the session's own first turn. A resumed session that
       // never received an opening prompt (created while injection was off, or
@@ -350,8 +393,23 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
       if (step !== 1 || turn !== 1) return decision
       text = combinePromptTexts(settings.prompts, settings.selectedIds)
     } else {
-      // 续注：唯一触发源是日志，注入后引用 seq 前移，天然只触发一次。
-      if (reinjectionReason(history, settings, step) === undefined) return decision
+      // 续注：压缩与轮数两个触发源只读日志，注入后引用 seq 前移，天然只触发一次。
+      // token 压力是唯一的例外：读数来自官方计量，是否已触发由按会话的已触发位记着。
+      const reading = settings.reinjectTokenThreshold > 0
+        ? readPressure(agent.session)
+        : undefined
+      const pressure: PressureStep = pressureStep(
+        pressureArmed.get(agent.session.id) ?? true,
+        reading,
+        settings.reinjectTokenThreshold,
+      )
+      // Re-arming is written here, at every reading: a drop below the threshold
+      // is what makes the next crossing fire, and it can land mid-turn (a
+      // compaction), where the trigger itself is not allowed to fire.
+      pressureArmed.set(agent.session.id, pressure.armed)
+      const reason = reinjectionReason(history, settings, step, pressure)
+      if (reason === undefined) return decision
+      crossing = reason === 'pressure'
       text = settings.reinjectSource === 'refresh'
         // `refresh` states the CURRENT combination instead of repeating the log:
         // an edited preset or selection reaches the running session here, and
@@ -380,6 +438,11 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
     // not) may carry the injection, which is what post-compaction recovery needs.
     if (step === 1 && decision.messages.length === 0) return decision
 
+    // The crossing is consumed only here. Every gate above may still refuse the
+    // injection, and a refusal must leave the crossing armed so the next turn's
+    // first step can try again rather than losing it.
+    if (crossing) pressureArmed.set(agent.session.id, false)
+
     return { ...decision, messages: [createInjection(text), ...decision.messages] }
   })
 }
@@ -390,8 +453,17 @@ export {
   combinePromptTexts,
   normalizeReinjectSource,
   normalizeSelectedIds,
+  normalizeTokenThreshold,
 } from './types/anchor-settings.ts'
 export type { AnchorPrompt, AnchorSettings, ReinjectSource } from './types/anchor-settings.ts'
-export { readInjectionHistory, reinjectionReason } from './trigger.ts'
-export type { InjectionHistory, AnchorInjection, ReinjectionReason, ReinjectionPolicy } from './trigger.ts'
+export { pressureStep, readInjectionHistory, reinjectionReason } from './trigger.ts'
+export type {
+  InjectionHistory,
+  AnchorInjection,
+  PressureStep,
+  ReinjectionReason,
+  ReinjectionPolicy,
+} from './trigger.ts'
+export { meterPressure } from './meter.ts'
+export type { PressureReader } from './meter.ts'
 export { dropTarget, moveItem } from './order.ts'

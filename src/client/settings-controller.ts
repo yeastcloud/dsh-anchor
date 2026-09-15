@@ -19,6 +19,7 @@ import {
   FIELD_REINJECT_AFTER_COMPACTION,
   FIELD_REINJECT_SOURCE,
   FIELD_ANCHOR_SUBAGENTS,
+  FIELD_REINJECT_TOKEN_THRESHOLD,
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
   MAX_PROMPT_NAME_CHARS,
@@ -27,6 +28,7 @@ import {
   normalizeReinjectSource,
   normalizeSelectedIds,
   normalizeTextLimit,
+  normalizeTokenThreshold,
   normalizeTurnInterval,
   type AnchorPrompt,
   type AnchorSettings,
@@ -115,6 +117,11 @@ export class AnchorSettingsController {
   setReinjectTurnInterval(reinjectTurnInterval: number): void {
     const value = normalizeTurnInterval(reinjectTurnInterval)
     this.commit(this.next({ reinjectTurnInterval: value }), [[FIELD_REINJECT_TURN_INTERVAL, value]])
+  }
+
+  setReinjectTokenThreshold(reinjectTokenThreshold: number): void {
+    const value = normalizeTokenThreshold(reinjectTokenThreshold)
+    this.commit(this.next({ reinjectTokenThreshold: value }), [[FIELD_REINJECT_TOKEN_THRESHOLD, value]])
   }
 
   setMaxPromptChars(maxPromptChars: number): void {
@@ -230,6 +237,8 @@ export class AnchorSettingsController {
       this.host.unset(FIELD_PROMPTS),
       this.host.unset(FIELD_REINJECT_AFTER_COMPACTION),
       this.host.unset(FIELD_REINJECT_TURN_INTERVAL),
+      this.host.unset(FIELD_REINJECT_TOKEN_THRESHOLD),
+      this.host.unset(FIELD_ANCHOR_SUBAGENTS),
       this.host.unset(FIELD_MAX_PROMPT_CHARS),
       this.host.unset(FIELD_MAX_COMBINED_CHARS),
       this.host.unset(FIELD_REINJECT_SOURCE),

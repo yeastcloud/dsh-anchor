@@ -17,6 +17,7 @@
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
+  MAX_REINJECT_TOKEN_THRESHOLD,
   MAX_REINJECT_TURN_INTERVAL,
   MAX_TEXT_LIMIT,
   MIN_TEXT_LIMIT,
@@ -235,6 +236,23 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
             value={settings.reinjectTurnInterval}
             aria-label={t('turnIntervalAria')}
             onChange={(event) => controller.setReinjectTurnInterval(Number(event.target.value))}
+          />
+        </div>
+
+        <div className={css.intervalRow}>
+          <span className={css.behaviorCopy}>
+            <strong className={css.behaviorTitle}>{t('tokenThresholdTitle')}</strong>
+            <span className={css.behaviorDescription}>{t('tokenThresholdDescription')}</span>
+          </span>
+          <input
+            type="number"
+            className={css.numberInput}
+            min={0}
+            max={MAX_REINJECT_TOKEN_THRESHOLD}
+            step={1000}
+            value={settings.reinjectTokenThreshold}
+            aria-label={t('tokenThresholdAria')}
+            onChange={(event) => controller.setReinjectTokenThreshold(Number(event.target.value))}
           />
         </div>
 

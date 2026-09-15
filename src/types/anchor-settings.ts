@@ -14,6 +14,7 @@ export const FIELD_SELECTED_IDS = 'selectedIds'
 export const FIELD_PROMPTS = 'prompts'
 export const FIELD_REINJECT_AFTER_COMPACTION = 'reinjectAfterCompaction'
 export const FIELD_REINJECT_TURN_INTERVAL = 'reinjectTurnInterval'
+export const FIELD_REINJECT_TOKEN_THRESHOLD = 'reinjectTokenThreshold'
 export const FIELD_MAX_PROMPT_CHARS = 'maxPromptChars'
 export const FIELD_MAX_COMBINED_CHARS = 'maxCombinedChars'
 export const FIELD_REINJECT_SOURCE = 'reinjectSource'
@@ -58,6 +59,12 @@ export interface AnchorSettings {
   reinjectAfterCompaction: boolean
   /** Re-inject the baseline every N turns opened since the last injection; 0 disables. */
   reinjectTurnInterval: number
+  /**
+   * Re-inject once the session's context pressure crosses this many tokens, as
+   * the official token meter reports it; 0 disables. An absolute count because
+   * that is the figure the composer's context meter shows.
+   */
+  reinjectTokenThreshold: number
   /** Authoring limit for one preset text; never truncates stored prompts. */
   maxPromptChars: number
   /** Injection gate: a combined opening prompt above this is not injected. */
@@ -76,6 +83,11 @@ export const DEFAULT_PROMPTS: AnchorPrompt[] = [
 export const DEFAULT_REINJECT_TURN_INTERVAL = 20
 /** Upper bound accepted for the turn interval. */
 export const MAX_REINJECT_TURN_INTERVAL = 10_000
+
+/** Default token threshold: 0 keeps the pressure trigger off. */
+export const DEFAULT_REINJECT_TOKEN_THRESHOLD = 0
+/** Upper bound accepted for the token threshold; above any context window. */
+export const MAX_REINJECT_TOKEN_THRESHOLD = 10_000_000
 
 /** Structural cap on the preset library. */
 export const MAX_PROMPTS = 100
@@ -99,6 +111,7 @@ export const DEFAULT_ANCHOR_SETTINGS: AnchorSettings = {
   prompts: [...DEFAULT_PROMPTS],
   reinjectAfterCompaction: true,
   reinjectTurnInterval: DEFAULT_REINJECT_TURN_INTERVAL,
+  reinjectTokenThreshold: DEFAULT_REINJECT_TOKEN_THRESHOLD,
   maxPromptChars: DEFAULT_MAX_PROMPT_CHARS,
   maxCombinedChars: DEFAULT_MAX_COMBINED_CHARS,
   reinjectSource: DEFAULT_REINJECT_SOURCE,
@@ -112,6 +125,7 @@ export function cloneSettings(value: AnchorSettings): AnchorSettings {
     prompts: value.prompts.map((prompt) => ({ ...prompt })),
     reinjectAfterCompaction: value.reinjectAfterCompaction,
     reinjectTurnInterval: value.reinjectTurnInterval,
+    reinjectTokenThreshold: value.reinjectTokenThreshold,
     maxPromptChars: value.maxPromptChars,
     maxCombinedChars: value.maxCombinedChars,
     reinjectSource: value.reinjectSource,
@@ -123,6 +137,19 @@ export function cloneSettings(value: AnchorSettings): AnchorSettings {
 export function normalizeTurnInterval(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_REINJECT_TURN_INTERVAL
   return Math.min(MAX_REINJECT_TURN_INTERVAL, Math.max(0, Math.trunc(value)))
+}
+
+/**
+ * Clamp one token threshold into the accepted range, falling back on garbage.
+ *
+ * Garbage lands on 0 rather than on a positive default: this field's default is
+ * "off", and a value the plugin cannot read must never arm a trigger.
+ * @param value - decoded threshold.
+ * @returns the threshold to store, between 0 and {@link MAX_REINJECT_TOKEN_THRESHOLD}.
+ */
+export function normalizeTokenThreshold(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_REINJECT_TOKEN_THRESHOLD
+  return Math.min(MAX_REINJECT_TOKEN_THRESHOLD, Math.max(0, Math.trunc(value)))
 }
 
 /** Clamp one character limit into the accepted range, falling back on garbage. */
@@ -215,6 +242,7 @@ export function parseAnchorSettings(raw: unknown): AnchorSettings | undefined {
   // them yet. The reverse direction ignores unknown fields for free.
   const compaction = candidate[FIELD_REINJECT_AFTER_COMPACTION]
   const interval = candidate[FIELD_REINJECT_TURN_INTERVAL]
+  const tokenThreshold = candidate[FIELD_REINJECT_TOKEN_THRESHOLD]
   const promptChars = candidate[FIELD_MAX_PROMPT_CHARS]
   const combinedChars = candidate[FIELD_MAX_COMBINED_CHARS]
   return {
@@ -227,6 +255,10 @@ export function parseAnchorSettings(raw: unknown): AnchorSettings | undefined {
       typeof interval === 'number'
         ? normalizeTurnInterval(interval)
         : DEFAULT_ANCHOR_SETTINGS.reinjectTurnInterval,
+    reinjectTokenThreshold:
+      typeof tokenThreshold === 'number'
+        ? normalizeTokenThreshold(tokenThreshold)
+        : DEFAULT_ANCHOR_SETTINGS.reinjectTokenThreshold,
     maxPromptChars:
       typeof promptChars === 'number'
         ? normalizeTextLimit(promptChars, DEFAULT_MAX_PROMPT_CHARS)

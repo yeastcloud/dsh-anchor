@@ -24,7 +24,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 - **after `/compact`** — a summary swallows it. Summaries describe what happened; they never repeat *how you want things done*;
 - **inside a long tool loop** — dozens of tool results push it further away, and both style and discipline drift.
 
-`dsh-anchor` drops an anchor on that instruction block: inject it once at session start, then re-inject **the same text** whenever the session is compacted or crosses the turn interval you configured.
+`dsh-anchor` drops an anchor on that instruction block: inject it once at session start, then re-inject **the same text** whenever the session is compacted, crosses the turn interval you configured, or crosses a context-token threshold.
 
 ## Features
 
@@ -33,8 +33,9 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🧩 **Composable presets** | Build up to 100 presets, check any subset, and inject them joined in the order you drag them into. |
 | ⚓ **Re-anchor after compaction** | Watches for `compaction/summary` (automatic pressure compaction or `/compact`) and re-anchors at the next step boundary — including mid-turn, so the very next request carries it. |
 | 🔁 **Re-anchor by turn count** | Re-anchors at the start of a turn once N turns (default 20, configurable, 0 disables) have passed since the last injection. |
+| 📈 **Re-anchor on token pressure** | Reads the official token meter: once the context figure — **the same one shown beside the composer** — reaches the token count you set (`reinjectTokenThreshold`, 0 = off by default), it re-anchors at the start of the next turn. It fires **once per crossing**, so a context that merely stays high is not re-anchored turn after turn; a compaction that drops the figure back below the threshold starts a new crossing. |
 | 🎯 **Selectable re-anchor source** | Three ways: `first` keeps repeating the session's opening text; `latest` repeats the newest injection of this plugin (for example one you anchored later with `/anchor`); **`refresh` re-anchors the combination the settings page holds right now** — edit a preset or change the selection and the running session picks up the new text at its next re-anchor. |
-| 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
+| 🧠 **Replayable triggers** | The compaction and turn-count triggers read the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. The token trigger reads the official meter instead (itself a replay of that log) and keeps one armed flag per session — see "How it works". |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
 | 🐋 **Subagents stay unanchored** | Delegated child sessions get **no anchor and no re-anchor** by default: the persona and discipline are for the session you steer yourself, and a child replaying them only spends tokens. Turn it on in the settings page to treat children the same. |
 | ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor is held by the plugin and injected at the first step of your next message — it never enters the composer and never opens a turn). `/anchor status` reports without injecting. |
@@ -65,7 +66,7 @@ Type `/anchor` in any session:
 | Command | What it does |
 | --- | --- |
 | `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **first step of your next message** (it never enters the composer, never opens a turn, and never extends a turn already running), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
-| `/anchor status` | Read-only report: master switch, combination and length, re-anchor source and turn interval, this session's injection history (first / latest seq and length, plus anything still queued), and how many turns passed since the last injection. **Injects nothing.** |
+| `/anchor status` | Read-only report: master switch, combination and length, re-anchor source / turn interval / token threshold / after-compaction switch, this session's injection history (first / latest seq and length, plus anything still queued), and how many turns passed since the last injection. **Injects nothing.** |
 
 Every refusal path reports an error instead of injecting something approximate: switch off, empty combination, or a combined length above the configured limit.
 
@@ -74,9 +75,10 @@ Every refusal path reports an error instead of injecting something approximate: 
 ## How it works
 
 - **Session start** — on the first step of the session's *own* first turn (`turn === 1`), the plugin prepends one `source.kind = "plugin"` user message carrying the combined text. It is model-visible and logged, and it is distinguishable from a real submission.
-- **Re-anchor** — if the log shows a completed summarizing compaction after the last injection, the next step boundary re-injects (mid-turn included). If N turns have passed, step 1 of the next turn re-injects.
-- **Stateless** — every injection moves the reference seq forward, so a trigger fires once. Sessions that were never anchored are never given a belated "opening line" mid-conversation.
-- **Manual send** — the composer delivers it as an ordinary user message, so the client records a content digest (cyrb53) and the host claims matching user messages as this plugin's own.
+- **Re-anchor** — if the log shows a completed summarizing compaction after the last injection, the next step boundary re-injects (mid-turn included). If N turns have passed, step 1 of the next turn re-injects. If the context pressure crossed the configured token threshold, step 1 of the next turn re-injects too.
+- **Token pressure** — the one trigger whose input is a measurement rather than a log event. It reads `contextPressure` from the official token meter (`dsh-token-meter`) through `ctx.sessionProjections`: the same figure the composer renders, itself computed by replaying the session log. The rule is edge-triggered: a reading below the threshold re-arms a per-session flag, a reading at or above it fires once and disarms, so a context that merely stays above the threshold is not re-anchored again. A compaction that drops the reading back below re-arms it, and the next crossing fires. A profile without the meter reads nothing and never fires. The flag lives in the process: after a restart every session is armed again, so a session that is still above the threshold gets one more re-anchor at the next turn's first step, and the once-per-crossing rule holds from then on.
+- **Replay-safe by construction** — every injection moves the reference seq forward, so a log-driven trigger fires once; nothing but the token trigger's armed flag lives outside the durable log. Sessions that were never anchored are never given a belated "opening line" mid-conversation.
+- **Manual anchoring** — `/anchor` holds the combination on the host and injects it at the first step of your next message, so the command costs no tokens, opens no turn and extends no running turn.
 
 ## Configuration
 
@@ -89,6 +91,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 | `prompts` | 1 item | Preset library, up to 100 items, name ≤ 200 chars |
 | `reinjectAfterCompaction` | `true` | Re-anchor after a summarizing compaction |
 | `reinjectTurnInterval` | `20` | Turn interval between re-anchors (0–10000, 0 disables) |
+| `reinjectTokenThreshold` | `0` | Token threshold for the pressure trigger (0–10000000, 0 disables). Reads the official token meter, where the figure is the same context occupancy the composer shows; crossing it from below re-anchors once at the next turn's step 1, and staying above it does not re-anchor again |
 | `maxPromptChars` | `8000` | Authoring limit per preset; never truncates stored text |
 | `maxCombinedChars` | `8000` | Injection gate for the combined text; above it nothing is injected and a warning is logged |
 | `reinjectSource` | `'first'` | Which injection a re-anchor repeats: `first`, `latest` or `refresh` (the current combination) |
@@ -97,6 +100,8 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 ## FAQ
 
 **Why not inject every turn?** Repeating the block every turn burns context and desensitises the model to it. The anchor fires exactly when information is lost: after compaction, and after your configured turn interval.
+
+**Can the context decide for itself instead of counting turns?** Yes — set `reinjectTokenThreshold` to a token count (120000, say). The crossing of that figure (the one beside the composer, from the official token meter) re-anchors once at the start of the next turn, **once per crossing**: staying above the threshold never re-anchors again, while a compaction that drops it back below starts a new crossing. The default is 0 (off), and with it the plugin behaves exactly as it did before this trigger existed — it does not even read the meter.
 
 **Does re-anchoring fight the compaction summary?** No. The summary records *what happened*; the anchor restates *how you want things done*.
 
@@ -114,14 +119,16 @@ Finished items stay listed (✅ + strikethrough) with the release that shipped t
 | --- | --- | --- | --- |
 | ✅ | ~~Settings-page i18n: the UI and the command output follow the DSH locale (zh / en)~~ | `v0.7.0` | 2026-09-15 |
 | ✅ | ~~A third re-anchor source that refreshes the current combination~~ | `v0.9.0` | 2026-09-15 |
-| ⬜ | Trigger on context-token pressure, as a second yardstick next to the turn interval (**pending confirmation that the harness exposes a token-accounting seam**; drop the item if it does not) | — | — |
 | ✅ | ~~Preset import / export (sync your instruction library across machines)~~ | `v0.10.0` | 2026-09-15 |
+| ✅ | ~~Trigger on context-token pressure, as a second yardstick next to the turn interval (**pending confirmation that the harness exposes a token-accounting seam**; drop the item if it does not)~~ | `v0.11.0` | 2026-09-15 |
+
+No planned items remain.
 
 ## Development
 
 ```sh
 pnpm install     # dependencies (prepare builds once)
-pnpm check       # typecheck + 79 tests + build
+pnpm check       # typecheck + 112 tests + build
 pnpm build       # lib/index.js (host) and lib/client.js (client)
 ```
 
