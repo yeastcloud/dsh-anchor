@@ -106,16 +106,23 @@ jobs:
           set -euo pipefail
           tag="v${VERSION}"
           notes="$(mktemp)"
-          awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 {inside=1; next} inside && /^## \[/ {exit} inside {print}' CHANGELOG.md > "$notes"
-          previous="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
-          if [ -n "$previous" ]; then
-            link="compare/${previous}...${tag}"
+          section="$(awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 {inside=1; next} inside && /^## \[/ {exit} inside {print}' CHANGELOG.md)"
+          if [ -n "$section" ]; then
+            printf '%s\n' "$section" > "$notes"
+            previous="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
+            if [ -n "$previous" ]; then
+              link="compare/${previous}...${tag}"
+            else
+              link="commits/${tag}"
+            fi
+            printf '\n**Full Changelog**: https://github.com/%s/%s\n' "$REPO" "$link" >> "$notes"
+            args=(--notes-file "$notes")
           else
-            link="commits/${tag}"
+            echo "::warning::CHANGELOG.md 里没有 ${VERSION} 的段落，Release 笔记退回自动生成"
+            args=(--generate-notes)
           fi
-          printf '\n**Full Changelog**: https://github.com/%s/%s\n' "$REPO" "$link" >> "$notes"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title "$tag" --notes-file "$notes"
+            gh release edit "$tag" --title "$tag" "${args[@]}"
           else
-            gh release create "$tag" --title "$tag" --notes-file "$notes"
+            gh release create "$tag" --title "$tag" "${args[@]}"
           fi
