@@ -12,6 +12,8 @@
  * it, so a key that exists in only one language is a compile error on `en`.
  */
 
+import type { PresetImportReason } from './preset-transfer.ts'
+
 /** Locales this plugin ships copy for. */
 export const ANCHOR_LOCALES = ['zh', 'en'] as const
 
@@ -103,6 +105,24 @@ const zh = {
   pageSizeLabel: '每页',
   pageSizeAria: '每页预设条数',
   addPreset: '＋ 新增预设',
+
+  // Moving the preset library between machines.
+  exportPresets: '导出预设',
+  importPresets: '导入预设',
+  importFileAria: '选择要导入的预设文件',
+  importConfirmKeep: '导入 {count} 条预设，并替换当前预设库？当前组合保持不变。',
+  importConfirmReplace: '导入 {count} 条预设，并替换当前预设库？当前组合将改为导入文件里的 {selected} 条预设。',
+  importReasonEmptyFile: '导入失败：文件是空的。',
+  importReasonBadJson: '导入失败：文件不是合法的 JSON。',
+  importReasonBadFormat: '导入失败：这不是本插件导出的预设文件。',
+  importReasonBadVersion: '导入失败：文件版本不受支持，请更新插件后重试。',
+  importReasonBadPresets: '导入失败：预设列表缺失或格式不对。',
+  importReasonBadPresetId: '导入失败：有预设的 id 缺失、为空或过长。',
+  importReasonBadPresetName: '导入失败：有预设的名称缺失、为空或过长。',
+  importReasonBadPresetText: '导入失败：有预设的内容缺失或过长。',
+  importReasonDuplicateId: '导入失败：有两条预设用了同一个 id。',
+  importReasonTooMany: '导入失败：预设条数超过上限。',
+  importReasonBadSelection: '导入失败：组合里的 id 缺失、重复，或不在预设库中。',
 
   // The injection order.
   orderTitle: '注入顺序',
@@ -245,6 +265,26 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   pageSizeAria: 'Presets per page',
   addPreset: '＋ Add preset',
 
+  exportPresets: 'Export presets',
+  importPresets: 'Import presets',
+  importFileAria: 'Choose a preset file to import',
+  importConfirmKeep:
+    'Import {count} preset(s) and replace the current library? The current combination stays as it is.',
+  importConfirmReplace:
+    'Import {count} preset(s) and replace the current library? The combination becomes the {selected} preset(s) from the imported file.',
+  importReasonEmptyFile: 'Import failed: the file is empty.',
+  importReasonBadJson: 'Import failed: the file is not valid JSON.',
+  importReasonBadFormat: 'Import failed: this file was not exported by this plugin.',
+  importReasonBadVersion: 'Import failed: the document version is not supported; update the plugin and try again.',
+  importReasonBadPresets: 'Import failed: the preset list is missing or malformed.',
+  importReasonBadPresetId: 'Import failed: a preset id is missing, empty or too long.',
+  importReasonBadPresetName: 'Import failed: a preset name is missing, empty or too long.',
+  importReasonBadPresetText: 'Import failed: a preset text is missing or too long.',
+  importReasonDuplicateId: 'Import failed: two presets share one id.',
+  importReasonTooMany: 'Import failed: more presets than the library holds.',
+  importReasonBadSelection:
+    'Import failed: the combination names an id that is missing, repeated or not in the library.',
+
   orderTitle: 'Injection order',
   orderHint: 'Drag, or use ↑ ↓ to reorder; this order is the concatenation order',
   orderEmpty:
@@ -295,6 +335,26 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
 
 /** Both dictionaries, in the exact form the client locale service registers. */
 export const ANCHOR_COPY: Readonly<Record<AnchorLocale, Readonly<Record<AnchorCopyKey, string>>>> = { zh, en }
+
+/**
+ * The sentence reporting one refused preset document, per parser reason.
+ *
+ * The map is total over the reason union, so a new reason cannot ship without
+ * its copy in both languages.
+ */
+export const IMPORT_REASON_KEYS: Readonly<Record<PresetImportReason, AnchorCopyKey>> = {
+  empty: 'importReasonEmptyFile',
+  json: 'importReasonBadJson',
+  format: 'importReasonBadFormat',
+  version: 'importReasonBadVersion',
+  presets: 'importReasonBadPresets',
+  'preset-id': 'importReasonBadPresetId',
+  'preset-name': 'importReasonBadPresetName',
+  'preset-text': 'importReasonBadPresetText',
+  'duplicate-id': 'importReasonDuplicateId',
+  'too-many': 'importReasonTooMany',
+  selection: 'importReasonBadSelection',
+}
 
 /**
  * The same table indexed by an open locale id: a locale this plugin does not

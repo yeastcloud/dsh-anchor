@@ -49,6 +49,7 @@ import {
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
   MAX_PROMPTS,
+  MAX_PROMPT_ID_CHARS,
   MAX_PROMPT_NAME_CHARS,
   MAX_REINJECT_TURN_INTERVAL,
   MAX_SELECTED_IDS,
@@ -68,7 +69,7 @@ export const name = NS
 export const inject: string[] = ['settings']
 
 const AnchorPromptSchema = z.object({
-  id: z.string().min(1).max(128),
+  id: z.string().min(1).max(MAX_PROMPT_ID_CHARS),
   name: z.string().min(1).max(MAX_PROMPT_NAME_CHARS),
   // No length cap here on purpose: the authoring limit is the user-configured
   // `maxPromptChars` field, and a stored prompt is never truncated behind the
@@ -80,7 +81,7 @@ const AnchorPromptSchema = z.object({
 const AnchorSettingsSchema = z.object({
   [FIELD_ENABLED]: z.boolean().default(DEFAULT_ANCHOR_SETTINGS.enabled),
   [FIELD_SELECTED_IDS]: z
-    .array(z.string().min(1).max(128))
+    .array(z.string().min(1).max(MAX_PROMPT_ID_CHARS))
     .max(MAX_SELECTED_IDS)
     .default(DEFAULT_ANCHOR_SETTINGS.selectedIds),
   [FIELD_PROMPTS]: z.array(AnchorPromptSchema).max(MAX_PROMPTS).default(DEFAULT_ANCHOR_SETTINGS.prompts),

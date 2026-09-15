@@ -39,6 +39,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🐋 **Subagents stay unanchored** | Delegated child sessions get **no anchor and no re-anchor** by default: the persona and discipline are for the session you steer yourself, and a child replaying them only spends tokens. Turn it on in the settings page to treat children the same. |
 | ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor is held by the plugin and injected at the first step of your next message — it never enters the composer and never opens a turn). `/anchor status` reports without injecting. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
+| 💾 **Presets import / export** | Export the whole library (with the current combination) as a JSON document carrying its own format marker and version — for another machine, a backup, or sharing. An import validates everything first and refuses the whole file with one named reason, so a bad file can never half-replace your library. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
 
 ## Install
@@ -114,7 +115,7 @@ Finished items stay listed (✅ + strikethrough) with the release that shipped t
 | ✅ | ~~Settings-page i18n: the UI and the command output follow the DSH locale (zh / en)~~ | `v0.7.0` | 2026-09-15 |
 | ✅ | ~~A third re-anchor source that refreshes the current combination~~ | `v0.9.0` | 2026-09-15 |
 | ⬜ | Trigger on context-token pressure, as a second yardstick next to the turn interval (**pending confirmation that the harness exposes a token-accounting seam**; drop the item if it does not) | — | — |
-| ⬜ | Preset import / export (sync your instruction library across machines) | — | — |
+| ✅ | ~~Preset import / export (sync your instruction library across machines)~~ | `v0.10.0` | 2026-09-15 |
 
 ## Development
 

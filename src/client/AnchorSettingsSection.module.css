@@ -435,6 +435,19 @@
   flex-wrap: wrap;
 }
 
+/* Yellow zone actions: export / import the library next to the add button. */
+.pagerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The file input is driven by the import button, so it stays out of the row. */
+.fileInput {
+  display: none;
+}
+
 .pagerStatus {
   color: var(--dsw-alias-label-secondary, #808080f2);
   font-size: 12px;

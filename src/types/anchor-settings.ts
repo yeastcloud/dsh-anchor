@@ -83,6 +83,8 @@ export const MAX_PROMPTS = 100
 export const MAX_SELECTED_IDS = 20
 /** Structural cap on a preset name. */
 export const MAX_PROMPT_NAME_CHARS = 200
+/** Structural cap on a preset id; the Host schema and the decoder enforce the same one. */
+export const MAX_PROMPT_ID_CHARS = 128
 export const DEFAULT_MAX_PROMPT_CHARS = 8000
 export const DEFAULT_MAX_COMBINED_CHARS = 8000
 /** Bounds accepted for either user-configured limit. */
@@ -181,7 +183,7 @@ export function parseAnchorSettings(raw: unknown): AnchorSettings | undefined {
   for (const item of promptsRaw) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return undefined
     const prompt = item as Record<string, unknown>
-    if (typeof prompt['id'] !== 'string' || prompt['id'] === '' || prompt['id'].length > 128) return undefined
+    if (typeof prompt['id'] !== 'string' || prompt['id'] === '' || prompt['id'].length > MAX_PROMPT_ID_CHARS) return undefined
     if (typeof prompt['name'] !== 'string' || prompt['name'].length > MAX_PROMPT_NAME_CHARS) return undefined
     if (typeof prompt['text'] !== 'string') return undefined
     prompts.push({ id: prompt['id'], name: prompt['name'], text: prompt['text'] })

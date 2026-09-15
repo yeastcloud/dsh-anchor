@@ -4,7 +4,8 @@
  * Three zones:
  *  - the preset library, paged, with the exclusive 「不注入」 row pinned above it
  *    and one checkbox per preset (the opening prompt is a COMBINATION now);
- *  - the pager row, which also owns the add button;
+ *  - the pager row, which also owns the add button and the import/export pair
+ *    that moves the whole library between machines;
  *  - the injection order: the selected presets, reorderable by drag or ↑/↓.
  *
  * Every visible string comes from the slot-injected `t` seat (namespace
@@ -22,12 +23,16 @@ import {
   combinePromptTexts,
 } from '../types/anchor-settings.ts'
 import { dropTarget } from '../order.ts'
+import { serializePresetDocument } from '../preset-transfer.ts'
 import type { AnchorSettingsController } from './settings-controller.ts'
 import css from './AnchorSettingsSection.module.css'
 
 /** Page sizes offered for the preset library. */
 const PAGE_SIZES = [5, 10, 20] as const
 const DEFAULT_PAGE_SIZE = 5
+
+/** File name of one exported library. */
+const PRESET_FILE_NAME = 'dsh-anchor-presets.json'
 
 /**
  * Accept the native drag at document level while a row drag is active: row hover
@@ -87,6 +92,7 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
   const [drag, setDrag] = useState<DragState | null>(null)
   const dropCommitted = useRef(false)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   useNativeDragAcceptance(drag !== null)
 
@@ -131,6 +137,24 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
     const to = selectedIds.indexOf(over.id)
     if (from === -1 || to === -1) return
     controller.moveSelected(from, dropTarget(from, to, over.half))
+  }
+
+  /** Download the whole library as the document the import control reads back. */
+  const exportLibrary = (): void => {
+    const text = serializePresetDocument({ prompts, selectedIds }, new Date().toISOString())
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+    const link = window.document.createElement('a')
+    link.href = url
+    link.download = PRESET_FILE_NAME
+    link.click()
+    // The browser reads the blob after click(); revoking on the next tick frees
+    // the URL without cutting the download short.
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  /** Hand one chosen file to the controller, which validates it before writing anything. */
+  const importLibrary = async (file: File): Promise<void> => {
+    controller.importPresets(await file.text(), (question) => window.confirm(question))
   }
 
   return (
@@ -292,7 +316,7 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
       {!writable && status !== 'loading' ? <p className={css.notice}>{t('readOnly')}</p> : null}
       {error !== undefined ? (
         <p className={css.error} role="alert">
-          {t('saveFailed', { message: error })}
+          {error}
         </p>
       ) : null}
       {saving ? (
@@ -494,18 +518,43 @@ export function AnchorSettingsSection({ controller, t }: Props): React.ReactElem
             </select>
           </label>
         </div>
-        <button
-          type="button"
-          className={css.addPromptButton}
-          onClick={() => {
-            setEditing(undefined)
-            setAdding(true)
-            setNewName('')
-            setNewText('')
-          }}
-        >
-          {t('addPreset')}
-        </button>
+        <span className={css.pagerActions}>
+          <button type="button" className={css.secondaryButton} onClick={exportLibrary}>
+            {t('exportPresets')}
+          </button>
+          <button
+            type="button"
+            className={css.secondaryButton}
+            onClick={() => fileInput.current?.click()}
+          >
+            {t('importPresets')}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            className={css.fileInput}
+            accept=".json,application/json"
+            aria-label={t('importFileAria')}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              // Reset first, so choosing the same file again fires another change.
+              event.target.value = ''
+              if (file !== undefined) void importLibrary(file)
+            }}
+          />
+          <button
+            type="button"
+            className={css.addPromptButton}
+            onClick={() => {
+              setEditing(undefined)
+              setAdding(true)
+              setNewName('')
+              setNewText('')
+            }}
+          >
+            {t('addPreset')}
+          </button>
+        </span>
       </div>
 
       {/* Green zone: injection order of the selected presets. */}

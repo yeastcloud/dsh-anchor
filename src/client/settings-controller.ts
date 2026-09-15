@@ -9,7 +9,7 @@
 
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { translate, type AnchorCopyKey } from '../copy.ts'
+import { IMPORT_REASON_KEYS, translate, type AnchorCopyKey } from '../copy.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
   FIELD_ENABLED,
@@ -33,6 +33,7 @@ import {
   type ReinjectSource,
 } from '../types/anchor-settings.ts'
 import { moveItem } from '../order.ts'
+import { parsePresetDocument } from '../preset-transfer.ts'
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -50,6 +51,7 @@ export interface AnchorSnapshot {
   settings: AnchorSettings
   writable: boolean
   saving: boolean
+  /** The failure to show, already formatted for the active locale; absent when nothing failed. */
   error?: string
   revision: number
 }
@@ -236,9 +238,58 @@ export class AnchorSettingsController {
         this.publish({ saving: false, error: undefined })
       },
       (error: unknown) => {
-        this.publish({ saving: false, error: describeError(error) })
+        this.publish({ saving: false, error: this.t('saveFailed', { message: describeError(error) }) })
       },
     )
+  }
+
+  /**
+   * Replace the whole preset library and the combination that reads from it.
+   *
+   * Both fields are written together: the imported selection is only meaningful
+   * against the imported library, so writing one without the other would leave
+   * the page pointing at presets that no longer exist.
+   * @param next - the presets to store and the ids to select out of them.
+   */
+  replacePresets(next: { prompts: readonly AnchorPrompt[]; selectedIds: readonly string[] }): void {
+    const prompts = next.prompts.map((prompt) => ({ ...prompt }))
+    const selectedIds = normalizeSelectedIds(next.selectedIds, prompts)
+    this.commit({ ...this.snapshot.settings, prompts, selectedIds }, [
+      [FIELD_PROMPTS, prompts],
+      [FIELD_SELECTED_IDS, selectedIds],
+    ])
+  }
+
+  /**
+   * Replace the library from one exported preset document.
+   *
+   * The document is validated in full before anything is written: a refused file
+   * reports its reason through the snapshot error and leaves every field alone.
+   * @param document - raw text of the chosen file.
+   * @param confirm - asks the user to accept the replacement; receives the question to show, naming how many presets the file holds and what happens to the combination.
+   * @returns whether the library was replaced.
+   */
+  importPresets(document: string, confirm: (question: string) => boolean): boolean {
+    const parsed = parsePresetDocument(document)
+    if (!parsed.ok) {
+      this.publish({ error: this.t(IMPORT_REASON_KEYS[parsed.reason]) })
+      return false
+    }
+    // A document that parsed is no longer a failure: clearing here keeps a stale
+    // rejection off the page when the user then declines the replacement.
+    this.publish({ error: undefined })
+    const { selectedIds } = this.snapshot.settings
+    const question =
+      selectedIds.length === parsed.selectedIds.length
+      && selectedIds.every((id, index) => id === parsed.selectedIds[index])
+        ? this.t('importConfirmKeep', { count: parsed.presets.length })
+        : this.t('importConfirmReplace', {
+            count: parsed.presets.length,
+            selected: parsed.selectedIds.length,
+          })
+    if (!confirm(question)) return false
+    this.replacePresets({ prompts: parsed.presets, selectedIds: parsed.selectedIds })
+    return true
   }
 
   /** Combined opening prompt of the current selection, in injection order. */
@@ -284,7 +335,7 @@ export class AnchorSettingsController {
         this.publish({ saving: false, error: undefined })
       },
       (error: unknown) => {
-        this.publish({ saving: false, error: describeError(error) })
+        this.publish({ saving: false, error: this.t('saveFailed', { message: describeError(error) }) })
       },
     )
   }
