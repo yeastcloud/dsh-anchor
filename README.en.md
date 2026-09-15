@@ -8,7 +8,7 @@ Persona, tone, working discipline, project rules: say it once, and it keeps coun
 
 [![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![CI](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-lightgrey.svg)](LICENSE)
 
 [中文](README.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/yeastcloud/dsh-anchor/issues)
 
@@ -109,4 +109,8 @@ Publishing uses **npm trusted publishing (OIDC)** — no npm token is stored in 
 
 ## License
 
-[MIT](LICENSE) © 2026 YiSiYun Studio (一笥云)
+[CC BY-NC-SA 4.0](LICENSE) © 2026 YiSiYun Studio (一笥云)
+
+**Granted**: non-commercial use, modification, and redistribution under the same license. **Required**: attribution (keep the copyright and license notice, and state changes). **Prohibited**: any commercial use — contact YiSiYun Studio for a commercial license.
+
+> Note: this is a **source-available**, non-commercial license, not an OSI-approved open-source license. The plugin comes with no warranty.

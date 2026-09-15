@@ -9,7 +9,7 @@
 [![npm version](https://img.shields.io/npm/v/@yeastcloud/dsh-anchor.svg?color=blue)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![npm downloads](https://img.shields.io/npm/dm/@yeastcloud/dsh-anchor.svg)](https://www.npmjs.com/package/@yeastcloud/dsh-anchor)
 [![CI](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/yeastcloud/dsh-anchor/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-lightgrey.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-brightgreen.svg)](#安装)
 
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/yeastcloud/dsh-anchor/issues)
@@ -184,6 +184,10 @@ gh workflow run release.yml -f bump=minor
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 一笥云工作室 (YiSiYun Studio)
+[CC BY-NC-SA 4.0](LICENSE) © 2026 一笥云工作室 (YiSiYun Studio)
+
+**允许**：非商业使用、修改、再分发（须以同一协议）。**要求**：署名（保留版权与许可声明，注明改动）。**禁止**：任何商业用途；商用请与一笥云工作室单独联系授权。
+
+> 说明：这是**源码可见（source-available）**的非商业许可，不是 OSI 认定的开源许可；本插件不提供任何担保。
 
 <div align="center"><sub>⚓ 让船别漂 · Built for DeepSeek Harness</sub></div>
