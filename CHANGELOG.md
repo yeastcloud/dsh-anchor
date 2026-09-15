@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-15
+
+### Added
+
+- **`/anchor` 命令**：把当前组合立即定锚进本会话。命令处理器在接收它的 agent 上本地执行（官方契约原话 "Execute against the receiving agent without sending the command to the model"），因此**不花 token、不开新回合、不打断当前回合**；注入的是插件来源消息，所以「最近一条本插件注入」模式天然认得它，不依赖任何内容比对。
+- **`/anchor status`**：只读报告总开关、组合与字数、重锚来源与轮数间隔、本会话注入历史（首条 / 最近一条的 seq、来源、字数）与距上次注入的轮数；不注入任何内容。
+- 依赖 `@deepseek-ai/dsh-commands`（dev + peer），命令以 `ctx.inject(['commands'], …)` **可选注册**：没有命令服务的 profile 里插件照常工作。
+
 ## [0.4.2] — 2026-09-15
 
 ### Fixed

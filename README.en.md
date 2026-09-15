@@ -36,7 +36,8 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🎯 **Selectable re-anchor source** | `first` keeps repeating the session's opening text (a manual send stays a one-off); `latest` repeats the newest injection, including one you sent by hand — a persona switch inside that session. |
 | 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
-| 📤 **Send by hand** | The composer button sends the current combination as an ordinary message and records its digest, which is how `latest` mode recognises it. |
+| ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and interrupts nothing**. `/anchor status` reports without injecting. |
+| 📤 **Send by hand** | The composer button sends the current combination as an ordinary message (the model answers immediately) and records its digest, which is how `latest` mode recognises it. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
 
@@ -53,6 +54,19 @@ dsh web
 Then open **Settings → 定锚 (Anchor)**, add a few presets, check them, drag them into the order you want, and start a new session.
 
 **Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page and composer button). The UI is currently Chinese.
+
+## Commands
+
+Type `/anchor` in any session:
+
+| Command | What it does |
+| --- | --- |
+| `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **next step boundary** (no driver wake-up, no interruption), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
+| `/anchor status` | Read-only report: master switch, combination and length, re-anchor source and turn interval, this session's injection history (first / latest seq, origin and length), and how many turns passed since the last injection. **Injects nothing.** |
+
+Every refusal path reports an error instead of injecting something approximate: switch off, empty combination, or a combined length above the configured limit.
+
+> Why a command: the command contract states the handler runs locally against the agent and the command is **not sent to the model** — which is exactly what "drop an anchor on this conversation" should be. The composer button stays for the "make the model answer this combination right now" case.
 
 ## How it works
 

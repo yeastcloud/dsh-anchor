@@ -78,6 +78,7 @@ function mount(): Harness {
       },
     },
     logger: { warn: () => {} },
+    inject: () => {},
     on: (event: string, listener: Harness['handler']) => {
       if (event === 'agent/pre-step') handler = listener
     },
