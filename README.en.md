@@ -37,7 +37,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
 | 🐋 **Subagents stay unanchored** | Delegated child sessions get **no anchor and no re-anchor** by default: the persona and discipline are for the session you steer yourself, and a child replaying them only spends tokens. Turn it on in the settings page to treat children the same. |
-| ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor waits for the next turn boundary). `/anchor status` reports without injecting. |
+| ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor is held by the plugin and injected at the first step of your next message — it never enters the composer and never opens a turn). `/anchor status` reports without injecting. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
 
@@ -63,7 +63,7 @@ Type `/anchor` in any session:
 
 | Command | What it does |
 | --- | --- |
-| `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **next turn boundary** (no driver wake-up, and a turn already running is never extended), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
+| `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **first step of your next message** (it never enters the composer, never opens a turn, and never extends a turn already running), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
 | `/anchor status` | Read-only report: master switch, combination and length, re-anchor source and turn interval, this session's injection history (first / latest seq and length, plus anything still queued), and how many turns passed since the last injection. **Injects nothing.** |
 
 Every refusal path reports an error instead of injecting something approximate: switch off, empty combination, or a combined length above the configured limit.

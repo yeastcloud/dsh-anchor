@@ -177,25 +177,20 @@ function runAnchorCommand(
   settings: AnchorSettings,
   invocation: CommandInvocation,
   locale: AnchorLocale,
+  pendingAnchors: Map<string, string>,
 ): CommandResult {
   const t: HostTranslate = (key, vars) => translate(locale, key, vars)
   const input = invocation.rawInput.trim().toLowerCase()
   if (input !== '' && input !== 'status') return { kind: 'error', text: t('command.usage') }
 
   const text = combinePromptTexts(settings.prompts, settings.selectedIds)
-  // Anchors queue for the NEXT TURN rather than the next step. A next-step item is
-  // claimed by whatever turn is running, which extends that turn with an extra
-  // model step — anchoring mid-reply therefore looked like a stall. A next-turn
-  // item waits for the boundary, so anchoring never lengthens work in flight, and
-  // `agent.inject()` (next-step, no wake) stays available for a caller that wants
-  // the current turn to pick it up.
-  const queuedTurn = invocation.agent.inbox.nextTurn.filter(isOwnMessage)
-  const queuedStep = invocation.agent.inbox.nextStep.filter(isOwnMessage)
-  const history = readInjectionHistory(
-    invocation.agent.session.snapshotEvents(),
-    NS,
-
-  )
+  // The anchor is held here, not in the agent inbox. Inbox entries are pending
+  // INPUT: the client renders them as a queued message and the loop may open a
+  // turn for them, so a next-turn anchor produced a reply with no user message,
+  // while a next-step one extended whatever turn was already running. The
+  // pre-step hook injects this slot at the first step of the next turn instead.
+  const history = readInjectionHistory(invocation.agent.session.snapshotEvents(), NS)
+  const pending = pendingAnchors.get(invocation.agent.session.id)
 
   if (input === 'status') {
     const lines = [
@@ -222,18 +217,12 @@ function runAnchorCommand(
         ),
       }),
     ]
-    if (queuedTurn.length > 0) {
-      const chars = queuedTurn.reduce((total, message) => total + injectionText(message).length, 0)
-      lines.push(t('command.queuedTurn', { count: queuedTurn.length, chars }))
-    }
-    if (queuedStep.length > 0) {
-      lines.push(t('command.queuedStep', { count: queuedStep.length }))
+    if (pending !== undefined) {
+      lines.push(t('command.pendingAnchor', { chars: pending.length }))
     }
     if (history.first === undefined) {
       lines.push(
-        queuedTurn.length + queuedStep.length > 0
-          ? t('command.noInjectionYetQueued')
-          : t('command.noInjectionYet'),
+        pending !== undefined ? t('command.noInjectionYetQueued') : t('command.noInjectionYet'),
       )
     } else {
       lines.push(t('command.firstInjection', { seq: history.first.seq, chars: history.first.text.length }))
@@ -262,11 +251,11 @@ function runAnchorCommand(
       text: t('command.overLimit', { chars: text.length, max: settings.maxCombinedChars }),
     }
   }
-  if ([...queuedTurn, ...queuedStep].some((message) => injectionText(message) === text)) {
+  if (pending === text) {
     return { kind: 'success', text: t('command.duplicate') }
   }
 
-  invocation.agent.inbox.append('next-turn', createInjection(text))
+  pendingAnchors.set(invocation.agent.session.id, text)
   return {
     kind: 'success',
     text: t('command.anchored', {
@@ -285,6 +274,8 @@ function runAnchorCommand(
 export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}): void {
   const locale = pickHostLocale(options.env)
   const t: HostTranslate = (key, vars) => translate(locale, key, vars)
+  /** Manual anchors awaiting the first step of the next turn, keyed by session. */
+  const pendingAnchors = new Map<string, string>()
   let live: () => AnchorSettings = () => DEFAULT_ANCHOR_SETTINGS
   /** Last over-limit state reported, so a long session warns once per change, not per step. */
   let warnedOverLimit: string | undefined
@@ -309,7 +300,7 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
       name: 'anchor',
       description: t('command.description'),
       input: { hint: '[status]' },
-      handler: (invocation) => runAnchorCommand(live(), invocation, locale),
+      handler: (invocation) => runAnchorCommand(live(), invocation, locale, pendingAnchors),
     })
   })
 
@@ -321,6 +312,16 @@ export function apply(ctx: Context, _config?: unknown, options: HostOptions = {}
 
     const settings = live()
     if (!settings.enabled) return decision
+
+    // A manual anchor waits for the first step of the next turn: nothing enters
+    // the inbox, so it is neither rendered as pending input nor able to open a
+    // turn of its own, and requiring step 1 keeps it from lengthening the turn
+    // that is already running.
+    const pendingAnchor = pendingAnchors.get(agent.session.id)
+    if (pendingAnchor !== undefined && step === 1 && decision.messages.length > 0) {
+      pendingAnchors.delete(agent.session.id)
+      return { ...decision, messages: [createInjection(pendingAnchor), ...decision.messages] }
+    }
 
     const events = agent.session.snapshotEvents()
     // Delegated (subagent) sessions are skipped unless the user opts in: the

@@ -128,9 +128,8 @@ const zh = {
   'command.intervalTurns': '{turns} 轮',
   'command.afterCompactionYes': '补',
   'command.afterCompactionNo': '不补',
-  'command.queuedTurn': '已排队：{count} 条（{chars} 字），等下一个回合边界落进日志',
-  'command.queuedStep': '另有 {count} 条排在下一个 step 边界',
-  'command.noInjectionYetQueued': '本会话日志：还没有已落地的注入（上面那条落地后会成为首条基线）',
+  'command.pendingAnchor': '待生效：{chars} 字，已就绪 —— 下一条消息的第一个 step 注入本会话',
+  'command.noInjectionYetQueued': '本会话日志：还没有已落地的注入（上面那条待生效的注入进来后会成为首条基线）',
   'command.noInjectionYet': '本会话：尚无注入（下一条消息的第一个 step 会定锚）',
   'command.firstInjection': '本会话首条注入：seq {seq}（{chars} 字）',
   'command.latestInjection': '最近一次注入：seq {seq}（{chars} 字）',
@@ -139,9 +138,9 @@ const zh = {
   'command.switchOff': '定锚总开关已关闭（设置 → 定锚）。{usage}',
   'command.emptyCombination': '当前组合为空（「不注入」），没有可注入的内容。{usage}',
   'command.overLimit': '组合 {chars} 字，超过合并上限 {max} 字，未注入。',
-  'command.duplicate': '⚓ 已有一条同样的组合在排队（等下一个回合边界落进日志），没有重复注入。',
+  'command.duplicate': '⚓ 同一条组合已经在待生效位（下一条消息的第一个 step 注入），没有重复准备。',
   'command.anchored':
-    '⚓ 已定锚：{chars} 字 · {segments} 段（{combination}）\n生效：下一个回合边界——正在跑的回合照旧跑完，不会被延长；也不唤醒驱动。\n此后本会话的压缩/轮数重锚都会复用这段原文。',
+    '⚓ 已定锚：{chars} 字 · {segments} 段（{combination}）\n生效：下一条消息的第一个 step —— 不进输入框、不会自己开回合，也不会延长正在跑的回合。\n此后本会话的压缩/轮数重锚都会复用这段原文。',
   'log.overLimit': '定锚注入已跳过：开启提示词 {chars} 字，超过配置的 {max} 字上限',
 }
 
@@ -263,8 +262,7 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   'command.intervalTurns': '{turns} turns',
   'command.afterCompactionYes': 'yes',
   'command.afterCompactionNo': 'no',
-  'command.queuedTurn': 'Queued: {count} message(s) ({chars} char(s)), waiting for the next turn boundary to land in the log',
-  'command.queuedStep': '{count} more queued for the next step boundary',
+  'command.pendingAnchor': 'Pending: {chars} char(s), ready — the first step of your next message injects it into this session',
   'command.noInjectionYetQueued':
     'Session log: nothing has landed yet (the queued anchor becomes the first baseline once it lands)',
   'command.noInjectionYet': 'This session: no injection yet (the first step of the next message anchors it)',
@@ -276,9 +274,9 @@ const en: Readonly<Record<AnchorCopyKey, string>> = {
   'command.emptyCombination': 'The current combination is empty ("inject nothing"); there is nothing to inject. {usage}',
   'command.overLimit': 'The combination is {chars} char(s), above the combined limit of {max} chars; nothing was injected.',
   'command.duplicate':
-    '⚓ An identical combination is already queued (waiting for the next turn boundary to land in the log); nothing was injected twice.',
+    '⚓ The same combination is already pending (injected at the first step of your next message); nothing was prepared twice.',
   'command.anchored':
-    '⚓ Anchored: {chars} char(s) · {segments} preset(s) ({combination})\nTakes effect at the next turn boundary — a running turn finishes unchanged and is never extended, and no driver is woken.\nFrom now on this session re-anchors that same text after a compaction or a turn interval.',
+    '⚓ Anchored: {chars} char(s) · {segments} preset(s) ({combination})\nTakes effect at the first step of your next message — it never enters the composer, never opens a turn of its own, and never lengthens a turn already running.\nFrom now on this session re-anchors that same text after a compaction or a turn interval.',
   'log.overLimit': 'opening prompt is {chars} chars, above the configured {max}-char limit; injection skipped',
 }
 

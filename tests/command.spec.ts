@@ -34,6 +34,8 @@ interface Harness {
   command: CommandDefinition | undefined
   /** Everything the handler queued, as `[target, message]` pairs. */
   queued: { target: string; message: Injection }[]
+  /** Run one pre-step as the loop would, with the messages it claimed. */
+  step: (messages: Injection[], options?: { turn?: number; step?: number }) => Promise<{ messages: Injection[] }>
   /** Run the handler as the registry would, against one stub agent. */
   run: (rawInput?: string) => unknown
   setSettings: (patch: Partial<AnchorSettings>) => void
@@ -62,11 +64,12 @@ function mount(
   let nextStep: Injection[] = []
   const queued: { target: string; message: Injection }[] = []
   let command: CommandDefinition | undefined
+  let preStep: PreStepHandler | undefined
 
   // Mirrors the real agent: pending input lives in two inbox queues, and a queued
   // anchor is the only place a not-yet-claimed injection is visible.
   const agent = {
-    session: { snapshotEvents: () => log },
+    session: { id: 's1', snapshotEvents: () => log },
     inbox: {
       get nextTurn() {
         return nextTurn
@@ -98,7 +101,9 @@ function mount(
       },
     },
     logger: { warn: () => {} },
-    on: () => {},
+    on: (event: string, handler: unknown) => {
+      if (event === 'agent/pre-step') preStep = handler as PreStepHandler
+    },
     inject: (names: readonly string[], callback: (scoped: unknown) => void) => {
       if (names.includes('commands')) {
         callback({ commands: { register: (definition: CommandDefinition) => { command = definition } } })
@@ -111,6 +116,11 @@ function mount(
     command,
     description: command?.description,
     queued,
+    step: async (messages, options) =>
+      (await preStep?.(
+        { agent, messages, turn: options?.turn ?? 1, step: options?.step ?? 1, signal: new AbortController().signal },
+        async () => ({ kind: 'enter', messages }),
+      )) as { messages: Injection[] },
     run: (rawInput = '') => command?.handler({ agent, rawInput, commandId: 'c1', attachments: [], signal: new AbortController().signal }),
     setSettings: (patch) => {
       current = { ...current, ...patch }
@@ -121,7 +131,17 @@ function mount(
   }
 }
 
-const queuedText = (harness: Harness): string | undefined => harness.queued[0]?.message.content?.[0]?.text
+type PreStepHandler = (payload: unknown, next: () => Promise<unknown>) => Promise<unknown>
+
+/** One message the loop removed from the inbox for this step. */
+const question = (text: string): Injection => ({ content: [{ type: 'text', text }], source: { kind: 'user' } })
+
+/** Text of the first injected message in a pre-step result, or undefined. */
+function injectedText(result: { messages: Injection[] }): string | undefined {
+  const first = result.messages[0]
+  if (first?.source?.plugin !== pluginName) return undefined
+  return first.content?.[0]?.text
+}
 const resultOf = (value: unknown): { kind: string; text?: string } => value as { kind: string; text?: string }
 
 describe('/anchor', () => {
@@ -140,22 +160,31 @@ describe('/anchor', () => {
     expect(english.description).not.toContain('定锚')
   })
 
-  // A next-step anchor is claimed by whatever turn is running, which silently adds
-  // a model step to work already in flight; only the next-turn queue may be used.
-  it('queues the anchor for the next turn, never for the next step', () => {
+  // Inbox entries are pending INPUT: the client shows them as a queued message and
+  // the loop may open a turn for them, so a next-turn anchor produced a reply with
+  // no user message and a next-step one extended the turn already running.
+  it('never puts the anchor in the agent inbox', () => {
     const harness = mount()
     harness.run()
-    expect(harness.queued.map((entry) => entry.target)).toEqual(['next-turn'])
+    expect(harness.queued).toEqual([])
   })
 
-  it('queues the current combination as one plugin-sourced message', () => {
+  it('injects the held anchor at the first step of the next turn, exactly once', async () => {
     const harness = mount({ selectedIds: ['b', 'a'] })
     const result = resultOf(harness.run())
     expect(result.kind).toBe('success')
     expect(result.text).toContain('已定锚')
-    expect(harness.queued).toHaveLength(1)
-    expect(queuedText(harness)).toBe('乙\n\n甲')
-    expect(harness.queued[0]?.message.source?.plugin).toBe(pluginName)
+    expect(harness.queued).toEqual([])
+
+    // A step inside a running turn is left alone: nothing in flight grows.
+    expect(injectedText(await harness.step([question('继续')], { turn: 2, step: 3 }))).toBeUndefined()
+
+    const injected = await harness.step([question('继续说')], { turn: 3, step: 1 })
+    expect(injectedText(injected)).toBe('乙\n\n甲')
+    expect(injected.messages[0]?.source?.plugin).toBe(pluginName)
+
+    // Claimed once: the following turn starts clean.
+    expect(injectedText(await harness.step([question('再来')], { turn: 4, step: 1 }))).toBeUndefined()
   })
 
   // Same run, two environments: the anchored TEXT is the user's own and never
@@ -170,20 +199,20 @@ describe('/anchor', () => {
     const englishResult = resultOf(english.run())
     expect(englishResult.kind).toBe('success')
     expect(englishResult.text).toContain('Anchored: 4 char(s) · 2 preset(s) (乙预设 → 甲预设)')
-    expect(englishResult.text).toContain('Takes effect at the next turn boundary')
+    expect(englishResult.text).toContain('Takes effect at the first step of your next message')
     expect(englishResult.text).not.toContain('已定锚')
-    expect(queuedText(english)).toBe('乙\n\n甲')
+    expect(english.queued).toEqual([])
 
     const french = mount({ selectedIds: ['b', 'a'] }, { LANG: 'fr_FR.UTF-8' })
     expect(resultOf(french.run()).text).toContain('已定锚')
   })
 
-  it('does not queue the same combination twice', () => {
+  it('does not hold the same combination twice', () => {
     const harness = mount()
     harness.run()
     const second = resultOf(harness.run())
-    expect(harness.queued).toHaveLength(1)
-    expect(second.text).toContain('没有重复注入')
+    expect(harness.queued).toEqual([])
+    expect(second.text).toContain('没有重复准备')
   })
 
   it('reports a queued anchor instead of contradicting /anchor', () => {
@@ -191,7 +220,7 @@ describe('/anchor', () => {
     harness.run()
     const result = resultOf(harness.run('status'))
     expect(result.kind).toBe('success')
-    expect(result.text).toContain('已排队：1 条')
+    expect(result.text).toContain('待生效：')
     expect(result.text).toContain('还没有已落地的注入')
     expect(result.text).not.toContain('尚无注入')
   })
