@@ -1,0 +1,7 @@
+node_modules/
+lib/
+pnpm-lock.yaml.bak*
+*.log
+.DS_Store
+.vitest/
+coverage/

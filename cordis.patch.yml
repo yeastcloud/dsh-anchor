@@ -1,0 +1,4 @@
+# @yisiyun/dsh-anchor bundle patch: self-inject into the web plugin roster.
+- insert:
+    - id: anchor
+      name: @yisiyun/dsh-anchor

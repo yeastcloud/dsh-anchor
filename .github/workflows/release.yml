@@ -1,0 +1,76 @@
+name: Release
+
+# 一条命令发版：递增版本 → 全量检查 → 构建 → 提交并打 tag → 发布到 npm（可信发布，无需 token）→ 建 GitHub Release。
+# 前置：在 npmjs.com 的包设置里配好 Trusted Publisher（首次发布需先手动发一次，见 README 的「发布」一节）。
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 版本递增方式
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      dry_run:
+        description: 只跑检查与构建，不提交、不打 tag、不发布
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # 提交版本号并推 tag
+  id-token: write # npm 可信发布（OIDC）
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Bump version
+        id: bump
+        run: |
+          npm version "${{ inputs.bump }}" --no-git-tag-version
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Typecheck · test · build
+        run: pnpm check
+
+      - name: Commit and tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: v${{ steps.bump.outputs.version }}"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin "HEAD:${{ github.ref_name }}" --follow-tags
+
+      # npm 的可信发布需要较新的 CLI（Node 22 自带的 npm 可能偏旧）
+      - name: Upgrade npm
+        if: ${{ !inputs.dry_run }}
+        run: npm install -g npm@latest
+
+      - name: Publish to npm (trusted publishing)
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.bump.outputs.version }}" \
+            --title "v${{ steps.bump.outputs.version }}" \
+            --generate-notes

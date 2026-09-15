@@ -1,0 +1,633 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.intro {
+  margin: 6px 0 0;
+  max-width: 620px;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.headingActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.behaviorSwitch {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, #8c8c8c47);
+  background: var(--dsw-alias-bg-layer-1, transparent);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.behaviorCheckbox {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.behaviorCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.behaviorTitle {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.behaviorDescription {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Re-injection block: the compaction switch and the turn-interval row read as
+   one group of follow-up controls under the master switch. */
+.reinjectBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intervalRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, #8c8c8c47);
+  background: var(--dsw-alias-bg-layer-1, transparent);
+  border-radius: 10px;
+}
+
+.numberInput {
+  flex: none;
+  width: 88px;
+  padding: 6px 10px;
+  border: 1px solid #8c8c8c73;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+}
+
+.numberInput:focus {
+  outline: 2px solid #3b82f673;
+  outline-offset: 1px;
+  border-color: #3b82f6;
+}
+
+/* Segmented control for the re-injection source. */
+.tabs {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid #8c8c8c73;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab,
+.tabActive {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: #8c8c8c1f;
+}
+
+.tabActive {
+  background: #3b82f624;
+  color: #3b82f6;
+  font-weight: 650;
+}
+
+.promptRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid #8c8c8c38;
+  background: var(--dsw-alias-bg-layer-2, #8080800a);
+  border-radius: 10px;
+}
+
+.promptRowSelected {
+  border-color: #3b82f6aa;
+  background: #3b82f608;
+}
+
+.radio {
+  margin-top: 3px;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.promptMain {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.promptName {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.promptText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-secondary, #6b6b6b);
+  max-height: 78px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #8c8c8c55 transparent;
+}
+
+.promptText::-webkit-scrollbar {
+  width: 6px;
+}
+
+.promptText::-webkit-scrollbar-thumb {
+  background: #8c8c8c55;
+  border-radius: 999px;
+}
+
+.promptText::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.promptTextEmpty {
+  font-style: italic;
+  color: #9a9a9a;
+}
+
+.rowActions {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+  align-items: center;
+}
+
+.promptEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.textInput {
+  min-width: 160px;
+  padding: 6px 10px;
+  border: 1px solid #8c8c8c73;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  flex: 1;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 7px 9px;
+  border: 1px solid #8c8c8c73;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.textInput:focus,
+.textarea:focus {
+  outline: 2px solid #3b82f673;
+  outline-offset: 1px;
+  border-color: #3b82f6;
+}
+
+.inlineForm {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.addPromptForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed #8c8c8c73;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, #8080800a);
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton,
+.addPromptButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid #8c8c8c73;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.primaryButton {
+  color: #3b82f6;
+  border-color: #3b82f6;
+  background: #3b82f624;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #3b82f642;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #8c8c8c1f;
+}
+
+.dangerButton {
+  color: #e05b52;
+  border-color: #dc50468c;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: #dc50461f;
+}
+
+.addPromptButton {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  border-style: dashed;
+  align-self: flex-start;
+}
+
+.addPromptButton:hover {
+  background: #8c8c8c1a;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled,
+.addPromptButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.empty,
+.statusLine,
+.notice,
+.error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty,
+.statusLine {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+}
+
+.notice {
+  color: #b45309;
+}
+
+.error {
+  color: #e05b52;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #3b82f6;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+
+.hint {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Preset library checkbox (the opening prompt is a combination, not a choice). */
+.checkbox {
+  margin-top: 3px;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.badgeMuted {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #b4530980;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+
+.charCount {
+  margin-right: auto;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Yellow zone: pager row, which also owns the add button. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px dashed #8c8c8c73;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, #8080800a);
+}
+
+.pagerControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagerStatus {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pageSizeLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+}
+
+.pageSizeSelect {
+  padding: 4px 6px;
+  border: 1px solid #8c8c8c73;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+/* Green zone: injection order (drag or ↑/↓). */
+.orderZone {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, #8c8c8c47);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1, transparent);
+}
+
+.orderHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.orderTitle {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.orderHint {
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+}
+
+.orderEmpty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed #8c8c8c73;
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.orderList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.orderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #8c8c8c38;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, #8080800a);
+}
+
+.orderRow:active {
+  cursor: grabbing;
+}
+
+.dropBefore {
+  box-shadow: inset 0 2px 0 0 #3b82f6;
+}
+
+.dropAfter {
+  box-shadow: inset 0 -2px 0 0 #3b82f6;
+}
+
+.dragHandle {
+  flex: none;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  cursor: grab;
+  user-select: none;
+  font-size: 13px;
+  letter-spacing: -1px;
+}
+
+.orderIndex {
+  flex: none;
+  min-width: 18px;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.orderName {
+  flex: none;
+  max-width: 40%;
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orderPreview {
+  flex: 1;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #8c8c8c73;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: #8c8c8c1f;
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.orderMeta {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.orderOverLimit {
+  margin: 0;
+  color: #e05b52;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.orderPreviewBox {
+  border-top: 1px solid #8c8c8c38;
+  padding-top: 6px;
+}
+
+.orderPreviewSummary {
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary, #808080f2);
+  font-size: 12px;
+}
+
+.orderPreviewBody {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 160px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, #8080800a);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

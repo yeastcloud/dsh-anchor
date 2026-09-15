@@ -1,0 +1,31 @@
+.dock {
+  user-select: none;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  display: flex;
+}
+
+.button {
+  color: inherit;
+  cursor: pointer;
+  background: 0 0;
+  border: 1px solid #8c8c8c73;
+  border-radius: 999px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: background-color .12s, border-color .12s, color .12s;
+  display: inline-flex;
+}
+
+.button:hover {
+  background: #8c8c8c1f;
+}
+
+.button:focus-visible {
+  outline-offset: 1px;
+  border-color: #d97706;
+  outline: 2px solid #d9770673;
+}
