@@ -1,15 +1,26 @@
 name: Release
 
-# 一条命令发版：递增版本 → 全量检查 → 构建 → 提交并打 tag → 发布到 npm（可信发布，无需 token）→ 建 GitHub Release。
-# 前置：在 npmjs.com 的包设置里配好 Trusted Publisher（首次发布需先手动发一次，见 README 的「发布」一节）。
+# 发版：可选递增版本 → 全量检查 → 构建 → 提交并打 tag → 发布 npm（可信发布，无需 token）→ 建 GitHub Release。
+# 用法：
+#   gh workflow run release.yml -f bump=patch                 # 递增并发布
+#   gh workflow run release.yml -f bump=none                  # 不改版本，把仓库当前版本发出去
+#   gh workflow run release.yml -f bump=patch -f dry_run=true # 只验证链路，不提交不发版
+# 发布方式：mode=stage（默认，暂存到 npm 后由维护者用 2FA 确认）/ mode=direct（直接发布，
+# 需要 npmjs 上该包的 trusted publisher 授予 npm publish 权限，而不是仅 npm stage publish）。
+# 前置：npmjs 上该包已配好 Trusted Publisher（首次发布需先手动发一次）。
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 版本递增方式
+        description: 版本递增方式（none = 不改版本，直接发布仓库里当前版本）
         type: choice
-        options: [patch, minor, major]
+        options: [patch, minor, major, none]
         default: patch
+      mode:
+        description: 发布方式（stage = 暂存到 npm 由你 2FA 确认；direct = 直接发布）
+        type: choice
+        options: [stage, direct]
+        default: stage
       dry_run:
         description: 只跑检查与构建，不提交、不打 tag、不发布
         type: boolean
@@ -40,22 +51,34 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Bump version
-        id: bump
-        run: |
-          npm version "${{ inputs.bump }}" --no-git-tag-version
-          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        if: ${{ inputs.bump != 'none' }}
+        run: npm version "${{ inputs.bump }}" --no-git-tag-version
+
+      - name: Resolve version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Typecheck · test · build
         run: pnpm check
 
+      # bump=none 时跳过提交（版本已经在仓库里），但 tag 不存在仍会补打——
+      # 这样"重跑一次失败的发布"不需要再升一个版本。
       - name: Commit and tag
         if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "release: v${{ steps.bump.outputs.version }}"
-          git tag "v${{ steps.bump.outputs.version }}"
-          git push origin "HEAD:${{ github.ref_name }}" --follow-tags
+          if [ "${{ inputs.bump }}" != "none" ]; then
+            git commit -am "release: v${VERSION}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+          if ! git ls-remote --exit-code --tags origin "v${VERSION}" >/dev/null 2>&1; then
+            git tag -a "v${VERSION}" -m "release: v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
 
       # npm 的可信发布需要较新的 CLI（Node 22 自带的 npm 可能偏旧）
       - name: Upgrade npm
@@ -64,13 +87,18 @@ jobs:
 
       - name: Publish to npm (trusted publishing)
         if: ${{ !inputs.dry_run }}
-        run: npm publish --provenance --access public
+        run: |
+          if [ "${{ inputs.mode }}" = "stage" ]; then
+            npm stage publish --provenance --access public
+          else
+            npm publish --provenance --access public
+          fi
 
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v${{ steps.bump.outputs.version }}" \
-            --title "v${{ steps.bump.outputs.version }}" \
-            --generate-notes
+          tag="v${VERSION}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes
