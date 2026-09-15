@@ -12,12 +12,9 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-// Type-only: merges the conversation composer.dock slot declaration.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { NS, parseAnchorSettings } from '../types/anchor-settings.ts'
 import { AnchorSettingsController } from './settings-controller.ts'
 import { AnchorSettingsSection } from './AnchorSettingsSection.tsx'
-import { SendPromptDock } from './SendPromptDock.tsx'
 
 export const inject = ['slots', 'connection', 'remote', 'settingsScope']
 
@@ -43,17 +40,4 @@ export function apply(ctx: ClientContext): void {
     ),
   )
 
-  // Composer dock pill, right after the ponytail toggle (order 20): click
-  // sends the selected preset prompt as an ordinary queued message.
-  ctx.slots.inject('conversation.composer.dock', () =>
-    ctx.slots.register(
-      {
-        name: 'conversation.composer.dock',
-        id: 'anchor',
-        order: 21,
-        inject: () => ({ controller }),
-      },
-      SendPromptDock,
-    ),
-  )
 }

@@ -39,7 +39,6 @@ import {
   DEFAULT_REINJECT_SOURCE,
   DEFAULT_REINJECT_TURN_INTERVAL,
   FIELD_ENABLED,
-  FIELD_MANUAL_SEND_DIGESTS,
   FIELD_MAX_COMBINED_CHARS,
   FIELD_MAX_PROMPT_CHARS,
   FIELD_PROMPTS,
@@ -47,7 +46,6 @@ import {
   FIELD_REINJECT_SOURCE,
   FIELD_REINJECT_TURN_INTERVAL,
   FIELD_SELECTED_IDS,
-  MAX_MANUAL_SEND_DIGESTS,
   MAX_PROMPTS,
   MAX_PROMPT_NAME_CHARS,
   MAX_REINJECT_TURN_INTERVAL,
@@ -56,7 +54,6 @@ import {
   MIN_TEXT_LIMIT,
   NS,
   combinePromptTexts,
-  normalizeManualSendDigests,
   type AnchorSettings,
 } from './types/anchor-settings.ts'
 import { readInjectionHistory, reinjectionReason } from './trigger.ts'
@@ -100,10 +97,6 @@ const AnchorSettingsSchema = z.object({
   // The union pins the accepted values; a hand-edited document is normalized on
   // the client decode and falls back to the default rather than failing.
   [FIELD_REINJECT_SOURCE]: z.union([z.const('first'), z.const('latest')]).default(DEFAULT_REINJECT_SOURCE),
-  [FIELD_MANUAL_SEND_DIGESTS]: z
-    .array(z.string().max(32))
-    .max(MAX_MANUAL_SEND_DIGESTS)
-    .default(DEFAULT_ANCHOR_SETTINGS.manualSendDigests),
 })
 
 export const Config = z.object({})
@@ -120,6 +113,11 @@ function createInjection(text: string): UserMessage {
 function isOwnMessage(message: UserMessage): boolean {
   const source = message.source as { kind?: string; plugin?: string }
   return source.kind === 'plugin' && source.plugin === NS
+}
+
+/** Model-facing text of one injection, for command output and duplicate checks. */
+function injectionText(message: UserMessage): string {
+  return message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
 }
 
 /** Human-facing summary of the current combination, for command output. */
@@ -147,10 +145,18 @@ function runAnchorCommand(settings: AnchorSettings, invocation: CommandInvocatio
   if (input !== '' && input !== 'status') return { kind: 'error', text: ANCHOR_USAGE }
 
   const text = combinePromptTexts(settings.prompts, settings.selectedIds)
+  // Anchors queue for the NEXT TURN rather than the next step. A next-step item is
+  // claimed by whatever turn is running, which extends that turn with an extra
+  // model step — anchoring mid-reply therefore looked like a stall. A next-turn
+  // item waits for the boundary, so anchoring never lengthens work in flight, and
+  // `agent.inject()` (next-step, no wake) stays available for a caller that wants
+  // the current turn to pick it up.
+  const queuedTurn = invocation.agent.inbox.nextTurn.filter(isOwnMessage)
+  const queuedStep = invocation.agent.inbox.nextStep.filter(isOwnMessage)
   const history = readInjectionHistory(
     invocation.agent.session.snapshotEvents(),
     NS,
-    normalizeManualSendDigests(settings.manualSendDigests),
+
   )
 
   if (input === 'status') {
@@ -160,13 +166,30 @@ function runAnchorCommand(settings: AnchorSettings, invocation: CommandInvocatio
       `重锚：${settings.reinjectSource === 'latest' ? '最近一条本插件注入' : '定锚原文'}` +
         ` ｜ 轮数间隔：${settings.reinjectTurnInterval === 0 ? '关闭' : `${String(settings.reinjectTurnInterval)} 轮`}` +
         ` ｜ 压缩后：${settings.reinjectAfterCompaction ? '补' : '不补'}`,
-      history.first === undefined
-        ? '本会话：尚无注入（下一条消息的第一个 step 会定锚）'
-        : `本会话首条注入：seq ${String(history.first.seq)}（${history.first.manual ? '手发' : '自动'}，${String(history.first.text.length)} 字）`,
     ]
+    if (queuedTurn.length > 0) {
+      const chars = queuedTurn.reduce((total, message) => total + injectionText(message).length, 0)
+      lines.push(
+        `已排队：${String(queuedTurn.length)} 条（${String(chars)} 字），等下一个回合边界落进日志`,
+      )
+    }
+    if (queuedStep.length > 0) {
+      lines.push(`另有 ${String(queuedStep.length)} 条排在下一个 step 边界`)
+    }
+    if (history.first === undefined) {
+      lines.push(
+        queuedTurn.length + queuedStep.length > 0
+          ? '本会话日志：还没有已落地的注入（上面那条落地后会成为首条基线）'
+          : '本会话：尚无注入（下一条消息的第一个 step 会定锚）',
+      )
+    } else {
+      lines.push(
+        `本会话首条注入：seq ${String(history.first.seq)}（${String(history.first.text.length)} 字）`,
+      )
+    }
     if (history.latest !== undefined && history.latest.seq !== history.first?.seq) {
       lines.push(
-        `最近一次注入：seq ${String(history.latest.seq)}（${history.latest.manual ? '手发' : '自动'}，${String(history.latest.text.length)} 字）`,
+        `最近一次注入：seq ${String(history.latest.seq)}（${String(history.latest.text.length)} 字）`,
       )
     }
     if (history.first !== undefined) {
@@ -185,13 +208,19 @@ function runAnchorCommand(settings: AnchorSettings, invocation: CommandInvocatio
       text: `组合 ${String(text.length)} 字，超过合并上限 ${String(settings.maxCombinedChars)} 字，未注入。`,
     }
   }
+  if ([...queuedTurn, ...queuedStep].some((message) => injectionText(message) === text)) {
+    return {
+      kind: 'success',
+      text: '⚓ 已有一条同样的组合在排队（等下一个回合边界落进日志），没有重复注入。',
+    }
+  }
 
-  invocation.agent.inject(createInjection(text))
+  invocation.agent.inbox.append('next-turn', createInjection(text))
   return {
     kind: 'success',
     text:
       `⚓ 已定锚：${String(text.length)} 字 · ${String(settings.selectedIds.length)} 段（${describeCombination(settings)}）\n` +
-      '生效：下一个 step 边界，不唤醒驱动、不打断当前回合。\n' +
+      '生效：下一个回合边界——正在跑的回合照旧跑完，不会被延长；也不唤醒驱动。\n' +
       '此后本会话的压缩/轮数重锚都会复用这段原文。',
   }
 }
@@ -237,7 +266,7 @@ export function apply(ctx: Context): void {
     const history = readInjectionHistory(
       agent.session.snapshotEvents(),
       NS,
-      normalizeManualSendDigests(settings.manualSendDigests),
+
     )
 
     let text: string | undefined
@@ -281,10 +310,8 @@ export function apply(ctx: Context): void {
 }
 
 export { NS as ANCHOR_NAMESPACE }
-export { digestText } from './digest.ts'
 export {
   combinePromptTexts,
-  normalizeManualSendDigests,
   normalizeReinjectSource,
   normalizeSelectedIds,
 } from './types/anchor-settings.ts'

@@ -13,12 +13,10 @@ import {
   DEFAULT_MAX_PROMPT_CHARS,
   DEFAULT_REINJECT_SOURCE,
   DEFAULT_REINJECT_TURN_INTERVAL,
-  MAX_MANUAL_SEND_DIGESTS,
   MAX_PROMPTS,
   MAX_SELECTED_IDS,
   MAX_TEXT_LIMIT,
   MIN_TEXT_LIMIT,
-  normalizeManualSendDigests,
   normalizeReinjectSource,
   normalizeTextLimit,
   normalizeTurnInterval,
@@ -137,32 +135,18 @@ describe('re-injection source and hand-send digests', () => {
     expect(normalizeReinjectSource(undefined)).toBe(DEFAULT_REINJECT_SOURCE)
   })
 
-  it('decodes the stored source and the digest list', () => {
+  it('decodes the stored re-injection source', () => {
     const parsed = parseAnchorSettings({
       enabled: true,
       selectedIds: [],
       prompts: [prompt('a')],
       reinjectSource: 'latest',
-      manualSendDigests: ['0123456789abcdef', 'fedcba9876543210'],
     })
     expect(parsed?.reinjectSource).toBe('latest')
-    expect(parsed?.manualSendDigests).toEqual(['0123456789abcdef', 'fedcba9876543210'])
   })
 
-  it('defaults both when a host half predates them', () => {
+  it('defaults the source when a host half predates it', () => {
     const parsed = parseAnchorSettings({ enabled: true, selectedIds: [], prompts: [prompt('a')] })
     expect(parsed?.reinjectSource).toBe(DEFAULT_REINJECT_SOURCE)
-    expect(parsed?.manualSendDigests).toEqual([])
-  })
-
-  it('keeps only well-formed digests, deduped and capped', () => {
-    expect(normalizeManualSendDigests(['0123456789abcdef', 'nope', '0123456789abcdef', 42, 'zz'])).toEqual([
-      '0123456789abcdef',
-    ])
-    const many = Array.from({ length: MAX_MANUAL_SEND_DIGESTS + 3 }, (_, index) =>
-      index.toString(16).padStart(14, '0'),
-    )
-    expect(normalizeManualSendDigests(many)).toHaveLength(MAX_MANUAL_SEND_DIGESTS)
-    expect(normalizeManualSendDigests('0123456789abcdef')).toEqual([])
   })
 })

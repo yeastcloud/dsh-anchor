@@ -33,11 +33,10 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 🧩 **Composable presets** | Build up to 100 presets, check any subset, and inject them joined in the order you drag them into. |
 | ⚓ **Re-anchor after compaction** | Watches for `compaction/summary` (automatic pressure compaction or `/compact`) and re-anchors at the next step boundary — including mid-turn, so the very next request carries it. |
 | 🔁 **Re-anchor by turn count** | Re-anchors at the start of a turn once N turns (default 20, configurable, 0 disables) have passed since the last injection. |
-| 🎯 **Selectable re-anchor source** | `first` keeps repeating the session's opening text (a manual send stays a one-off); `latest` repeats the newest injection, including one you sent by hand — a persona switch inside that session. |
+| 🎯 **Selectable re-anchor source** | `first` keeps repeating the session's opening text; `latest` repeats the newest injection of this plugin — for example one you anchored later with `/anchor`, which switches the persona inside that session. |
 | 🧠 **Stateless decisions** | The trigger reads the durable session log and nothing else, in pure functions: restart, resume and replay reach the same decision, and one trigger can never fire twice. |
 | 🚦 **Configurable limits** | Per-preset authoring limit and a combined injection gate, both editable in the settings page (default 8000 chars). Above the gate the plugin **refuses to inject and logs it** instead of silently truncating your text. |
-| ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and interrupts nothing**. `/anchor status` reports without injecting. |
-| 📤 **Send by hand** | The composer button sends the current combination as an ordinary message (the model answers immediately) and records its digest, which is how `latest` mode recognises it. |
+| ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor waits for the next turn boundary). `/anchor status` reports without injecting. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
 
@@ -53,7 +52,7 @@ dsh web
 
 Then open **Settings → 定锚 (Anchor)**, add a few presets, check them, drag them into the order you want, and start a new session.
 
-**Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page and composer button). The UI is currently Chinese.
+**Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page). The UI is currently Chinese.
 
 ## Commands
 
@@ -61,12 +60,12 @@ Type `/anchor` in any session:
 
 | Command | What it does |
 | --- | --- |
-| `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **next step boundary** (no driver wake-up, no interruption), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
-| `/anchor status` | Read-only report: master switch, combination and length, re-anchor source and turn interval, this session's injection history (first / latest seq, origin and length), and how many turns passed since the last injection. **Injects nothing.** |
+| `/anchor` | Anchors the current combination into **this session**: one plugin-sourced message is injected and takes effect at the **next turn boundary** (no driver wake-up, and a turn already running is never extended), and every later compaction / turn-interval re-anchor reuses it. The handler runs locally on the receiving agent, so it **costs no tokens and produces no model reply**. |
+| `/anchor status` | Read-only report: master switch, combination and length, re-anchor source and turn interval, this session's injection history (first / latest seq and length, plus anything still queued), and how many turns passed since the last injection. **Injects nothing.** |
 
 Every refusal path reports an error instead of injecting something approximate: switch off, empty combination, or a combined length above the configured limit.
 
-> Why a command: the command contract states the handler runs locally against the agent and the command is **not sent to the model** — which is exactly what "drop an anchor on this conversation" should be. The composer button stays for the "make the model answer this combination right now" case.
+> Why a command: the command contract states the handler runs locally against the agent and the command is **not sent to the model** — which is exactly what "drop an anchor on this conversation" should be. That is also why the earlier composer button, and with it the whole "recognise it by content digest" mechanism, is gone: the command delivers the same text without spending tokens, opening a turn, or needing to recognise itself.
 
 ## How it works
 
@@ -89,7 +88,6 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 | `maxPromptChars` | `8000` | Authoring limit per preset; never truncates stored text |
 | `maxCombinedChars` | `8000` | Injection gate for the combined text; above it nothing is injected and a warning is logged |
 | `reinjectSource` | `'first'` | Which injection a re-anchor repeats: `first` or `latest` |
-| `manualSendDigests` | `[]` | Digests of hand-sent combinations (maintained by the client, up to 5) |
 
 ## FAQ
 
@@ -97,9 +95,9 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 
 **Does re-anchoring fight the compaction summary?** No. The summary records *what happened*; the anchor restates *how you want things done*.
 
-**What happens if I press the send button in `latest` mode?** The message arrives as a normal user message and is recorded; from then on that session re-anchors **that** text — a persona switch for the session. Switching back to `first` returns to the opening text.
+**What happens if I anchor with `/anchor` in `latest` mode?** That anchor becomes the session's newest injection, so later compaction and turn-interval re-anchors repeat **it** — a persona switch for the session. Switching back to `first` returns to the opening text.
 
-**Limits of manual-send recognition?** The host only sees the log, so it matches by content digest: pasting a byte-identical copy of a hand-sent combination also counts (the outcome is the same text, so it does not matter). Unrecorded user messages are never counted.
+**What counts as an injection?** Only messages this plugin sourced itself: the opening anchor, a compaction or turn-interval re-anchor, and an anchor you placed with `/anchor`. Text you type or paste never counts, and no content comparison is involved.
 
 **Does it send anything anywhere?** No. It never touches the network; the only file it writes is its own namespace in `~/.dsh/settings.yaml`.
 
@@ -107,7 +105,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 
 ```sh
 pnpm install     # dependencies (prepare builds once)
-pnpm check       # typecheck + 63 tests + build
+pnpm check       # typecheck + 66 tests + build
 pnpm build       # lib/index.js (host) and lib/client.js (client)
 ```
 

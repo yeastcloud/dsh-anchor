@@ -5,7 +5,6 @@
 
 import { describe, expect, it } from 'vitest'
 import { readInjectionHistory, reinjectionReason, type AnchorLogEvent } from '../src/trigger.ts'
-import { digestText } from '../src/digest.ts'
 
 const NS = 'dsh-anchor'
 
@@ -43,9 +42,6 @@ function compactionSummary(seq: number): AnchorLogEvent {
   return { type: 'compaction/summary', seq, data: { summary: [{ type: 'text', text: '摘要' }] } }
 }
 
-/** Digests as the client records them when the dock button sends a combination. */
-const sentHand = (...texts: string[]): string[] => texts.map((text) => digestText(text))
-
 const EVERY = { reinjectAfterCompaction: true, reinjectTurnInterval: 20 }
 
 describe('readInjectionHistory', () => {
@@ -64,7 +60,6 @@ describe('readInjectionHistory', () => {
       NS,
     )
     expect(history.first?.text).toBe('请用中文回答')
-    expect(history.first?.manual).toBe(false)
     expect(history.latest?.seq).toBe(1)
     expect(history.lastInjectionSeq).toBe(1)
     expect(history.turnsSinceLastInjection).toBe(3)
@@ -93,35 +88,6 @@ describe('readInjectionHistory', () => {
     expect(history.turnsSinceLastInjection).toBe(1)
   })
 
-  it('recognizes a hand-sent combination only when its digest was recorded', () => {
-    const recorded = readInjectionHistory(
-      [ours('锚文', 0), turnStart(1), human('手发的人设', 2)],
-      NS,
-      sentHand('手发的人设'),
-    )
-    expect(recorded.first?.text).toBe('锚文')
-    expect(recorded.latest?.text).toBe('手发的人设')
-    expect(recorded.latest?.manual).toBe(true)
-    expect(recorded.lastInjectionSeq).toBe(2)
-    expect(recorded.turnsSinceLastInjection).toBe(0)
-
-    const unrecorded = readInjectionHistory(
-      [ours('锚文', 0), turnStart(1), human('手发的人设', 2)],
-      NS,
-      sentHand('别的组合'),
-    )
-    expect(unrecorded.latest?.text).toBe('锚文')
-    expect(unrecorded.latest?.manual).toBe(false)
-    expect(unrecorded.turnsSinceLastInjection).toBe(1)
-  })
-
-  it('lets a hand send be the only baseline of a session', () => {
-    const history = readInjectionHistory([human('手发的人设', 0), turnStart(1)], NS, sentHand('手发的人设'))
-    expect(history.first?.text).toBe('手发的人设')
-    expect(history.first?.manual).toBe(true)
-    expect(history.latest?.text).toBe('手发的人设')
-  })
-
   it('resets the compaction and turn counters at each injection', () => {
     const history = readInjectionHistory(
       [ours('锚文', 0), compactionSummary(1), turnStart(2), ours('锚文', 3)],
@@ -129,14 +95,6 @@ describe('readInjectionHistory', () => {
     )
     expect(history.compactedAfterLastInjection).toBe(false)
     expect(history.turnsSinceLastInjection).toBe(0)
-
-    const afterHandSend = readInjectionHistory(
-      [ours('锚文', 0), compactionSummary(1), turnStart(2), human('手发的人设', 3)],
-      NS,
-      sentHand('手发的人设'),
-    )
-    expect(afterHandSend.compactedAfterLastInjection).toBe(false)
-    expect(afterHandSend.turnsSinceLastInjection).toBe(0)
   })
 
   it('joins text blocks and reports a textless injection as empty text', () => {

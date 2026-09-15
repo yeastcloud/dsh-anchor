@@ -204,11 +204,8 @@ export function AnchorSettingsSection({ controller }: Props): React.ReactElement
           <span className={css.behaviorCopy}>
             <strong className={css.behaviorTitle}>重锚取哪一条</strong>
             <span className={css.behaviorDescription}>
-              重锚重复哪一条：「定锚原文」= 会话开头那条，手发只算一次性；「最近一条」= 本插件最近一次注入，
-              包含你用「📤 发组合」发出去的那条（等于在本会话把人设换掉）。
-              {settings.manualSendDigests.length > 0
-                ? ` 已记录 ${settings.manualSendDigests.length} 次手发组合。`
-                : ' 还没记录过手发组合。'}
+              重锚重复哪一条：「定锚原文」= 永远重复会话开头那条；「最近一条」= 重复本插件最近一次注入
+              （用 `/anchor` 定锚的那条也在此列，等于在本会话把人设换掉）。
             </span>
           </span>
           <span className={css.tabs} role="group" aria-label="重锚来源">

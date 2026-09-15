@@ -6,16 +6,13 @@
 import { describe, expect, it } from 'vitest'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { AnchorSettingsController } from '../src/client/settings-controller.ts'
-import { digestText } from '../src/digest.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
   FIELD_ENABLED,
-  FIELD_MANUAL_SEND_DIGESTS,
   FIELD_MAX_PROMPT_CHARS,
   FIELD_PROMPTS,
   FIELD_REINJECT_SOURCE,
   FIELD_SELECTED_IDS,
-  MAX_MANUAL_SEND_DIGESTS,
   MIN_TEXT_LIMIT,
   type AnchorSettings,
 } from '../src/types/anchor-settings.ts'
@@ -85,35 +82,6 @@ describe('AnchorSettingsController', () => {
     expect(harness.controller.combinedText()).toBe('')
   })
 
-  it('records a hand send once and keeps the newest digests first', async () => {
-    const harness = mount()
-    harness.controller.recordManualSend('手发的人设')
-    await harness.settle()
-    expect(harness.sets).toEqual([[FIELD_MANUAL_SEND_DIGESTS, [digestText('手发的人设')]]])
-
-    harness.sets.length = 0
-    harness.controller.recordManualSend('手发的人设')
-    await harness.settle()
-    expect(harness.sets).toEqual([])
-
-    harness.controller.recordManualSend(' 手发的人设 ')
-    await harness.settle()
-    expect(harness.sets).toEqual([])
-
-    const many = Array.from({ length: MAX_MANUAL_SEND_DIGESTS + 2 }, (_, index) => `组合${String(index)}`)
-    for (const text of many) harness.controller.recordManualSend(text)
-    await harness.settle()
-    expect(harness.controller.getSnapshot().settings.manualSendDigests).toHaveLength(MAX_MANUAL_SEND_DIGESTS)
-    expect(harness.controller.getSnapshot().settings.manualSendDigests[0]).toBe(digestText(many.at(-1) ?? ''))
-  })
-
-  it('ignores an empty hand send', async () => {
-    const harness = mount()
-    harness.controller.recordManualSend('   ')
-    await harness.settle()
-    expect(harness.sets).toEqual([])
-  })
-
   it('writes the re-injection source and clamps text limits', async () => {
     const harness = mount()
     harness.controller.setReinjectSource('latest')
@@ -163,7 +131,6 @@ describe('AnchorSettingsController', () => {
         FIELD_MAX_PROMPT_CHARS,
         'maxCombinedChars',
         FIELD_REINJECT_SOURCE,
-        FIELD_MANUAL_SEND_DIGESTS,
       ]),
     )
   })

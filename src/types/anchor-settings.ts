@@ -17,7 +17,6 @@ export const FIELD_REINJECT_TURN_INTERVAL = 'reinjectTurnInterval'
 export const FIELD_MAX_PROMPT_CHARS = 'maxPromptChars'
 export const FIELD_MAX_COMBINED_CHARS = 'maxCombinedChars'
 export const FIELD_REINJECT_SOURCE = 'reinjectSource'
-export const FIELD_MANUAL_SEND_DIGESTS = 'manualSendDigests'
 
 /**
  * Retired single-selection field. Never written again; decoded only so a
@@ -56,8 +55,6 @@ export interface AnchorSettings {
   maxCombinedChars: number
   /** Which injection a re-injection repeats. */
   reinjectSource: ReinjectSource
-  /** Digests of combinations sent by the composer dock button, newest first. */
-  manualSendDigests: string[]
 }
 
 export const DEFAULT_PROMPTS: AnchorPrompt[] = [
@@ -75,9 +72,6 @@ export const MAX_PROMPTS = 100
 export const MAX_SELECTED_IDS = 20
 /** Structural cap on a preset name. */
 export const MAX_PROMPT_NAME_CHARS = 200
-/** How many hand-sent combination digests are remembered (newest first). */
-export const MAX_MANUAL_SEND_DIGESTS = 5
-
 export const DEFAULT_MAX_PROMPT_CHARS = 8000
 export const DEFAULT_MAX_COMBINED_CHARS = 8000
 /** Bounds accepted for either user-configured limit. */
@@ -95,7 +89,6 @@ export const DEFAULT_ANCHOR_SETTINGS: AnchorSettings = {
   maxPromptChars: DEFAULT_MAX_PROMPT_CHARS,
   maxCombinedChars: DEFAULT_MAX_COMBINED_CHARS,
   reinjectSource: DEFAULT_REINJECT_SOURCE,
-  manualSendDigests: [],
 }
 
 export function cloneSettings(value: AnchorSettings): AnchorSettings {
@@ -108,7 +101,6 @@ export function cloneSettings(value: AnchorSettings): AnchorSettings {
     maxPromptChars: value.maxPromptChars,
     maxCombinedChars: value.maxCombinedChars,
     reinjectSource: value.reinjectSource,
-    manualSendDigests: [...value.manualSendDigests],
   }
 }
 
@@ -127,22 +119,6 @@ export function normalizeTextLimit(value: number, fallback: number): number {
 /** Narrow one raw value into the accepted re-injection source. */
 export function normalizeReinjectSource(value: unknown): ReinjectSource {
   return value === 'latest' ? 'latest' : DEFAULT_REINJECT_SOURCE
-}
-
-/**
- * Keep only well-formed digests, drop duplicates, and remember the newest ones.
- * @param value - raw digest list from a store or a Host push.
- * @returns the digests, newest first.
- */
-export function normalizeManualSendDigests(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  const kept: string[] = []
-  for (const item of value) {
-    if (typeof item !== 'string' || !/^[0-9a-f]{8,32}$/.test(item) || kept.includes(item)) continue
-    kept.push(item)
-    if (kept.length >= MAX_MANUAL_SEND_DIGESTS) break
-  }
-  return kept
 }
 
 /** Dedupe the selection, drop ids the library no longer holds, and cap its length. */
@@ -245,6 +221,5 @@ export function parseAnchorSettings(raw: unknown): AnchorSettings | undefined {
         ? normalizeTextLimit(combinedChars, DEFAULT_MAX_COMBINED_CHARS)
         : DEFAULT_MAX_COMBINED_CHARS,
     reinjectSource: normalizeReinjectSource(candidate[FIELD_REINJECT_SOURCE]),
-    manualSendDigests: normalizeManualSendDigests(candidate[FIELD_MANUAL_SEND_DIGESTS]),
   }
 }

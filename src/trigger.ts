@@ -21,8 +21,6 @@
  * @module @yeastcloud/dsh-anchor/trigger
  */
 
-import { digestText } from './digest.ts'
-
 /** Structural view of one durable session event (`SessionEvent` is assignable). */
 export interface AnchorLogEvent {
   readonly type: string
@@ -36,8 +34,6 @@ export interface AnchorInjection {
   readonly seq: number
   /** Trimmed text of the message; empty when it carried none. */
   readonly text: string
-  /** Whether the composer dock sent it by hand rather than this plugin's own path. */
-  readonly manual: boolean
 }
 
 /** What the durable log states about this plugin's injections. */
@@ -70,9 +66,6 @@ const TURN_START = 'turn/start'
 /** Event type carrying model-visible user messages, this plugin's included. */
 const USER_MESSAGE = 'user/message'
 
-/** Source `kind` of a message a human submitted (or the composer dock sent). */
-const USER_SOURCE = 'user'
-
 /** The `source` field of a message payload, when it has an object one. */
 function sourceOf(data: unknown): { kind?: unknown; plugin?: unknown } | undefined {
   if (typeof data !== 'object' || data === null) return undefined
@@ -85,12 +78,6 @@ function sourceOf(data: unknown): { kind?: unknown; plugin?: unknown } | undefin
 function isOwnMessage(data: unknown, plugin: string): boolean {
   const source = sourceOf(data)
   return source !== undefined && source.kind === 'plugin' && source.plugin === plugin
-}
-
-/** Whether one event data payload is an ordinary user message. */
-function isUserMessage(data: unknown): boolean {
-  const source = sourceOf(data)
-  return source !== undefined && source.kind === USER_SOURCE
 }
 
 /** Concatenated text of one message payload (empty when it carries none). */
@@ -111,18 +98,15 @@ function messageText(data: unknown): string {
  * Read this plugin's injection history out of the durable event log.
  *
  * Compaction replacement messages carry `source.plugin === "compact"`, so they
- * never count. A user message counts only when its digest matches a recorded
- * hand-send, which keeps ordinary user text out of the history.
+ * never count: only messages this plugin sourced itself enter the history.
  *
  * @param events - ordered durable events (`session.snapshotEvents()`).
  * @param plugin - the plugin namespace recorded in the injected message source.
- * @param manualSendDigests - digests of combinations the dock button sent.
  * @returns the earliest and newest injections plus what happened since the newest.
  */
 export function readInjectionHistory(
   events: readonly AnchorLogEvent[],
   plugin: string,
-  manualSendDigests: readonly string[] = [],
 ): InjectionHistory {
   let first: AnchorInjection | undefined
   let latest: AnchorInjection | undefined
@@ -131,13 +115,8 @@ export function readInjectionHistory(
 
   for (const event of events) {
     if (event.type === USER_MESSAGE) {
-      let manual: boolean | undefined
-      if (isOwnMessage(event.data, plugin)) manual = false
-      else if (isUserMessage(event.data) && manualSendDigests.length > 0) {
-        manual = manualSendDigests.includes(digestText(messageText(event.data))) ? true : undefined
-      }
-      if (manual === undefined) continue
-      const injection: AnchorInjection = { seq: event.seq, text: messageText(event.data), manual }
+      if (!isOwnMessage(event.data, plugin)) continue
+      const injection: AnchorInjection = { seq: event.seq, text: messageText(event.data) }
       if (first === undefined) first = injection
       latest = injection
       compacted = false

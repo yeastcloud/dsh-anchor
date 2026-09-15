@@ -11,7 +11,6 @@ import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
   DEFAULT_ANCHOR_SETTINGS,
   FIELD_ENABLED,
-  FIELD_MANUAL_SEND_DIGESTS,
   FIELD_MAX_COMBINED_CHARS,
   FIELD_MAX_PROMPT_CHARS,
   FIELD_PROMPTS,
@@ -22,7 +21,6 @@ import {
   MAX_PROMPT_NAME_CHARS,
   cloneSettings,
   combinePromptTexts,
-  normalizeManualSendDigests,
   normalizeReinjectSource,
   normalizeSelectedIds,
   normalizeTextLimit,
@@ -31,7 +29,6 @@ import {
   type AnchorSettings,
   type ReinjectSource,
 } from '../types/anchor-settings.ts'
-import { digestText } from '../digest.ts'
 import { moveItem } from '../order.ts'
 
 function describeError(error: unknown): string {
@@ -116,26 +113,6 @@ export class AnchorSettingsController {
   setReinjectSource(reinjectSource: ReinjectSource): void {
     const value = normalizeReinjectSource(reinjectSource)
     this.commit(this.next({ reinjectSource: value }), [[FIELD_REINJECT_SOURCE, value]])
-  }
-
-  /**
-   * Record a combination the composer dock sent by hand.
-   *
-   * The composer delivers it as an ordinary user message, so the Host can only
-   * recognize it by content: it digests candidate user messages from the log and
-   * compares them with these records.
-   */
-  recordManualSend(text: string): void {
-    if (text.trim() === '') return
-    const current = this.snapshot.settings
-    const manualSendDigests = normalizeManualSendDigests([digestText(text), ...current.manualSendDigests])
-    if (
-      manualSendDigests.length === current.manualSendDigests.length
-      && manualSendDigests.every((digest, index) => digest === current.manualSendDigests[index])
-    ) {
-      return
-    }
-    this.commit({ ...current, manualSendDigests }, [[FIELD_MANUAL_SEND_DIGESTS, manualSendDigests]])
   }
 
   /** Add or remove one preset in the ordered combination. */
@@ -238,7 +215,6 @@ export class AnchorSettingsController {
       this.host.unset(FIELD_MAX_PROMPT_CHARS),
       this.host.unset(FIELD_MAX_COMBINED_CHARS),
       this.host.unset(FIELD_REINJECT_SOURCE),
-      this.host.unset(FIELD_MANUAL_SEND_DIGESTS),
     ]).then(
       () => {
         this.publish({ saving: false, error: undefined })

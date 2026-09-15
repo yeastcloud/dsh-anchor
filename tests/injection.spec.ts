@@ -12,7 +12,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { apply, name as pluginName } from '../src/index.ts'
-import { digestText } from '../src/digest.ts'
 import { DEFAULT_ANCHOR_SETTINGS, type AnchorSettings } from '../src/types/anchor-settings.ts'
 
 interface LogEvent {
@@ -260,40 +259,28 @@ describe('re-injection', () => {
 })
 
 describe('re-injection source', () => {
-  const handSent = '手发的人设'
-  const withHandSend = (patch: Partial<AnchorSettings>): AnchorSettings =>
-    settingsWith(['b'], { manualSendDigests: [digestText(handSent)], ...patch })
+  const second = '后来重锚的文本'
 
-  it('repeats the opening prompt by default, even after a hand-sent combination', async () => {
+  it('repeats the opening prompt by default, even after a newer injection', async () => {
     const harness = mount()
-    harness.setSettings(withHandSend({ reinjectSource: 'first' }))
-    const log = [ours('锚文原文', 0), human(handSent, 1), compactionSummary(2)]
+    harness.setSettings(settingsWith(['b'], { reinjectSource: 'first' }))
+    const log = [ours('锚文原文', 0), ours(second, 1), compactionSummary(2)]
     const result = await step(harness, log, { turn: 5, claimed: [claim('继续')] })
     expect(injectedText(result)).toBe('锚文原文')
   })
 
   it('repeats the newest injection when that source is selected', async () => {
     const harness = mount()
-    harness.setSettings(withHandSend({ reinjectSource: 'latest' }))
-    const log = [ours('锚文原文', 0), human(handSent, 1), compactionSummary(2)]
+    harness.setSettings(settingsWith(['b'], { reinjectSource: 'latest' }))
+    const log = [ours('锚文原文', 0), ours(second, 1), compactionSummary(2)]
     const result = await step(harness, log, { turn: 5, claimed: [claim('继续')] })
-    expect(injectedText(result)).toBe(handSent)
+    expect(injectedText(result)).toBe(second)
   })
 
-  it('lets a hand send be the baseline of a session that never had one', async () => {
-    const harness = mount()
-    harness.setSettings(withHandSend({ reinjectSource: 'latest' }))
-    const result = await step(harness, [human(handSent, 0), compactionSummary(1)], {
-      turn: 5,
-      claimed: [claim('继续')],
-    })
-    expect(injectedText(result)).toBe(handSent)
-  })
-
-  it('treats an unrecorded user message as no baseline at all', async () => {
+  it('ignores an ordinary user message, so a session can have no baseline', async () => {
     const harness = mount()
     harness.setSettings(settingsWith(['b']))
-    const result = await step(harness, [human(handSent, 0), compactionSummary(1)], {
+    const result = await step(harness, [human('路过的一句话', 0), compactionSummary(1)], {
       turn: 5,
       claimed: [claim('继续')],
     })
