@@ -57,9 +57,15 @@ describe('the identity the document hangs on', () => {
     // The line change is the point of the release: a peer range that still
     // admits the previous line would let the bundle mount where its settings
     // model does not exist.
-    for (const range of Object.values(manifest.peerDependencies)) {
+    // 2026-09-25 创始人口径：写成 `>=0.1.7-rc.1`（**不再兼容旧版**）—— 本断言只放行
+    // 「`^0.1.7…`」与「`>=0.1.7-rc.1`」两种形状，并**显式拒绝**任何把 0.1.6 线写进范围的写法。
+    for (const [name, range] of Object.entries(manifest.peerDependencies)) {
       if (!range.includes('0.1.')) continue
-      expect(range.startsWith('^0.1.7')).toBe(true)
+      expect(
+        /^(?:\^0\.1\.7|>=0\.1\.7-rc\.1)/.test(range),
+        `${name} 的 peer 必须只指向 0.1.7 线，实际是 ${range}`,
+      ).toBe(true)
+      expect(range.includes('0.1.6'), `${name} 不许兼容 0.1.6 线，实际是 ${range}`).toBe(false)
     }
   })
 })
