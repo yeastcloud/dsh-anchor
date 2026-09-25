@@ -43,6 +43,20 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | 💾 **Presets import / export** | Export the whole library (with the current combination) as a JSON document carrying its own format marker and version — for another machine, a backup, or sharing. An import validates everything first and refuses the whole file with one named reason, so a bad file can never half-replace your library. |
 | 🔒 **Local only** | No network, no telemetry. Its whole state stays on your machine: the `dsh-anchor` section of `~/.dsh/settings.yaml` on the 0.1.6 line, the active profile's configuration document (entry id `dsh-anchor`) from 0.1.7 on. |
 
+## DSH version compatibility
+
+| DSH version | Anchor plugin version |
+|---|---|
+| **0.1.7** (including `0.1.7-rc.1` / `0.1.7-rc.2`) | **0.13.0** (current) |
+| 0.1.6 (verified working on this machine) | 0.11.0 |
+| 0.1.5 (covered by the peer range, unverified) | 0.11.0 |
+
+> - **0.13.0 requires peers `>=0.1.7-rc.1`** — it **no longer supports the 0.1.6 line** (0.1.7 replaced the settings service,
+>   the client settings surface and the v4 session format; see `CHANGELOG.md`).
+> - `0.11.0` declares `^0.1.5-rc.2` (verified via `git show 6358c90:package.json`): by node-semver rules that range only
+>   admits the `0.1.5` tuple. `0.1.6-alpha.2` is **not** covered by that declaration but has been running here for a long
+>   time — hence the two separate rows.
+
 ## Install
 
 ```sh
