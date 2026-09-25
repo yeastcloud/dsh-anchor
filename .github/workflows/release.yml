@@ -130,13 +130,17 @@ jobs:
               link="commits/${tag}"
             fi
             printf '\n**Full Changelog**: https://github.com/%s/%s\n' "$REPO" "$link" >> "$notes"
-            args=(--notes-file "$notes")
+            edit_args=(--notes-file "$notes")
+            create_args=(--notes-file "$notes")
           else
             echo "::warning::CHANGELOG.md 里没有 ${VERSION} 的段落，Release 笔记退回自动生成"
-            args=(--generate-notes)
+            # ★ gh 的 `release edit` **没有** `--generate-notes`（只有 `create` 有）⇒ 别想当然 ✗
+            #   ⇒ edit 分支只改标题（保留既有笔记），自动生成只在 create 分支使用 ✓
+            edit_args=()
+            create_args=(--generate-notes)
           fi
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title "$tag" "${args[@]}"
+            gh release edit "$tag" --title "$tag" "${edit_args[@]}"
           else
-            gh release create "$tag" --title "$tag" "${args[@]}"
+            gh release create "$tag" --title "$tag" "${create_args[@]}"
           fi

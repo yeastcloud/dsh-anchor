@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-09-25
+
+minor：`peerDependencies` 全部改为 **`>=0.1.7-rc.1`** ⇒ **不再兼容 0.1.6 线** ✗（0.1.7 换了设置服务、客户端设置面与会话格式 v4）。
+
+### Changed
+
+- **peer 要求改为 `>=0.1.7-rc.1`**：0.1.6 及其以前不再被支持；README / README.en.md 新增「DSH 版本对应」表说明各线用哪个插件版本 ✓
+- **`settings.yaml` 机制在新线上已 removed**（引擎注释原文）⇒ 配置改为首次启动**一次性导入** profile 的 `cordis.patch.yml`；
+  本插件的设置段随 entry id（`dsh-anchor`）导入 ✓，无需再手工恢复 `settings.yaml` ✗
+- **README 版本对应表**：0.1.7（含 rc.1／rc.2）⇒ 0.13.0；0.1.6（实测可跑）／0.1.5（peer 覆盖、未实测）⇒ 0.11.0 ✓
+
+
 ## [0.12.0] — 2026-09-25
 
 跨线适配 ⇒ minor：本版把插件移到 DeepSeek Harness **0.1.7-rc.2** 线（依赖与 peer 范围全部改为 `^0.1.7-rc.2`，并显式声明 `@deepseek-ai/schemastery ^3.18.4` —— 新的 `Config` 用到该版本才有的 `Schema.prototype.volatile()`）。旧线（0.1.2–0.1.6）不再受支持：`^0.1.7-rc.2` 的 peer 范围会挡住它，装上去也不会再注册设置节。
