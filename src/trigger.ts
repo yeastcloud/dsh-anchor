@@ -8,7 +8,9 @@
  * be injected again.
  *
  * Two kinds of injection count:
- *  - automatic ones this plugin appended (`source.plugin` = the namespace);
+ *  - automatic ones this plugin appended (`source.kind` = the plugin's own
+ *    producer kind, or the retired `{ kind: 'plugin', plugin: <ns> }` pair a
+ *    pre-V4 log still carries — see {@link isAnchorInjectionSource});
  *  - a combination sent by hand from the composer dock, recognized because the
  *    client recorded the digest of what it sent. The composer delivers that as
  *    an ordinary user message, so content is the only thing that can identify
@@ -27,6 +29,8 @@
  *
  * @module @yeastcloud/dsh-anchor/trigger
  */
+
+import { RETIRED_PLUGIN_SOURCE_KIND } from './types/anchor-settings.ts'
 
 /** Structural view of one durable session event (`SessionEvent` is assignable). */
 export interface AnchorLogEvent {
@@ -135,6 +139,27 @@ function sourceOf(data: unknown): { kind?: unknown; plugin?: unknown } | undefin
   return source as { kind?: unknown; plugin?: unknown }
 }
 
+/**
+ * Whether one durable message source was produced by this plugin's injections.
+ *
+ * Two shapes count. The plugin writes the producer-owned kind
+ * (`plugin:dsh-anchor`), which is also what session format V4's own V3→V4
+ * migration turns a released `{ kind: 'plugin', plugin: 'dsh-anchor' }` source
+ * into — so a session replayed after the upgrade reads the same history. The
+ * retired pair stays recognizable on top of that, because a live process can
+ * still hold events written before the format moved.
+ *
+ * @param source - a message payload's `source`.
+ * @param plugin - the plugin namespace whose injections are being matched.
+ * @returns true when this plugin sourced the message.
+ */
+export function isAnchorInjectionSource(source: unknown, plugin: string): boolean {
+  if (typeof source !== 'object' || source === null) return false
+  const { kind, plugin: origin } = source as { kind?: unknown; plugin?: unknown }
+  if (kind === `plugin:${plugin}`) return true
+  return kind === RETIRED_PLUGIN_SOURCE_KIND && origin === plugin
+}
+
 /** Event type `dsh-subagent` stamps when it captures the delegation policy. */
 const SANDBOX_MODE = 'sandbox/mode'
 /** Event type `dsh-subagent` stamps when it captures the approval policy. */
@@ -164,8 +189,7 @@ export function isDelegatedSession(events: readonly AnchorLogEvent[]): boolean {
 
 /** Whether one event data payload is a message this plugin sourced itself. */
 function isOwnMessage(data: unknown, plugin: string): boolean {
-  const source = sourceOf(data)
-  return source !== undefined && source.kind === 'plugin' && source.plugin === plugin
+  return isAnchorInjectionSource(sourceOf(data), plugin)
 }
 
 /** Concatenated text of one message payload (empty when it carries none). */

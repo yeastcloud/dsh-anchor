@@ -5,10 +5,13 @@
  * checkboxes and drag reordering touch `selectedIds` alone, so a rapid sequence
  * of edits cannot clobber an unrelated field the user just changed elsewhere.
  * The retired single-selection field is never written again.
+ *
+ * The transport is not named: the settings provider hands the page a form with
+ * the shape {@link AnchorSettingsHost} describes (snapshot, subscription, and
+ * per-field writes), so this controller never reaches for a transport itself.
  */
 
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { IMPORT_REASON_KEYS, translate, type AnchorCopyKey } from '../copy.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
@@ -48,6 +51,28 @@ function newId(prefix: string): string {
 /** One field to persist alongside the optimistic snapshot. */
 type FieldWrite = readonly [field: string, value: unknown]
 
+/**
+ * The settings transport this page needs, as the provider exposes it.
+ *
+ * `ConfigForm<T>` (the settings provider's form) satisfies this interface, which
+ * is why the page names the port it uses rather than the provider's type — and
+ * why a test can drive the controller with a plain double.
+ */
+export interface AnchorSettingsHost<T> {
+  /** @returns the current snapshot; `value` is undefined until the first accepted section. */
+  getSnapshot(): {
+    status: 'loading' | 'ready' | 'unavailable'
+    value: T | undefined
+    writable: boolean
+  }
+  /** Observe snapshot replacements. */
+  subscribe(listener: () => void): () => void
+  /** Queue one field write. */
+  set(field: string, value: unknown): Promise<unknown>
+  /** Queue one field clear, so the field re-inherits the default. */
+  unset(field: string): Promise<unknown>
+}
+
 export interface AnchorSnapshot {
   status: 'loading' | 'ready' | 'unavailable'
   settings: AnchorSettings
@@ -59,7 +84,7 @@ export interface AnchorSnapshot {
 }
 
 export class AnchorSettingsController {
-  private readonly host: SettingsScope<AnchorSettings>
+  private readonly host: AnchorSettingsHost<AnchorSettings>
   private readonly t: Translate<AnchorCopyKey>
   private readonly listeners = new Set<() => void>()
   private snapshot: AnchorSnapshot = {
@@ -72,11 +97,11 @@ export class AnchorSettingsController {
   }
 
   /**
-   * @param host - settings scope owning the durable document.
+   * @param host - the settings transport of the line in play, owning the durable document.
    * @param t - translator (this plugin's own copy keys) for the names the controller writes INTO that document; defaults to the Chinese dictionary, so a caller without a locale still stores a readable name.
    */
   constructor(
-    host: SettingsScope<AnchorSettings>,
+    host: AnchorSettingsHost<AnchorSettings>,
     t: Translate<AnchorCopyKey> = (key) => translate('zh', key),
   ) {
     this.host = host

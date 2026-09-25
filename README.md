@@ -45,7 +45,7 @@
 | ⚓ **`/anchor` 命令** | 输入 `/anchor` 立即把当前组合**定锚进本会话**：命令在本地执行，**不花 token、不开新回合、不延长正在跑的回合**（锚握在插件手里，下一条消息的第一个 step 注入——不进输入框、不会自己开回合）。`/anchor status` 只看状态不注入。 |
 | 🎛 **自带设置页** | 预设库（分页、多选、固定「不注入」行）、注入顺序（拖拽 / ↑↓ 排序、合并预览）、重锚策略 —— 全是可视化操作，不用改配置文件。 |
 | 💾 **预设可导入 / 导出** | 整库预设（含当前组合）导出成一份自带格式标记与版本号的 JSON，换机器、备份、分享都行；导入先完整校验再落地，任何一处不合法都**以一条明确理由整体拒绝**，不会半途写坏你的库。 |
-| 🔒 **绝不外传** | 纯本地插件：不联网、不埋点、不写任何远端；设置只落在你自己的 `~/.dsh/settings.yaml`。 |
+| 🔒 **绝不外传** | 纯本地插件：不联网、不埋点、不写任何远端；设置只落在你自己的机器上（0.1.6 线是 `~/.dsh/settings.yaml` 的 `dsh-anchor` 段；0.1.7 线是当前 profile 的配置文档，entry id 同样叫 `dsh-anchor`）。 |
 
 ## 安装
 
@@ -63,7 +63,9 @@ dsh web
 2. 勾选它们，在下方**注入顺序**里拖成你想要的拼接顺序；
 3. 新建一个会话——第一条指令就是这样进来的。
 
-**环境要求**：Node `^22.19 || >=24`；DeepSeek Harness 0.1.5 线（`0.1.5-rc.2` 起验证）。插件含 Host 半（注入逻辑）与 Client 半（设置页）。
+**环境要求**：Node `^22.19 || >=24`；DeepSeek Harness **0.1.7-rc.2 线**（依赖与 peer 范围即此线）。插件含 Host 半（注入逻辑）与 Client 半（设置页）。
+
+**设置放在哪**：0.1.6 线由 `ctx.settings.installSection` 把设置节落在 `~/.dsh/settings.yaml`；0.1.7 线起该 API 被删除，设置表单改由本插件自己的 `Config` schema 生成，值随当前 profile 的配置文档走——entry id 与插件命名空间同值（`dsh-anchor`），平台的退休导入机制会把老的 `dsh-anchor:` 段落到同一个 entry 上。
 
 **界面语言**：设置页与左侧导航跟随 DSH 的语言设置（中文 / English）；`/anchor` 的输出跟随宿主进程的 `LC_ALL` / `LANG`（语言标签首段是 `en` 时走英文，例如 `en`、`en_US.UTF-8`；其余一律走中文）。
 
@@ -116,7 +118,10 @@ graph TD
 
 ## 配置
 
-在 设置 → 定锚 里改；也可以直接编辑 `~/.dsh/settings.yaml` 的 `dsh-anchor` 段。
+在 设置 → 定锚 里改；也可以直接编辑设置文档本身：
+
+- **0.1.6 线**：`~/.dsh/settings.yaml` 的 `dsh-anchor` 段；
+- **0.1.7 线**：当前 profile 的配置文档（`dsh config` 打开的配置编辑器 / profile 的 `cordis.patch.yml`），entry id 为 `dsh-anchor`。
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
@@ -149,7 +154,7 @@ graph TD
 只有本插件自己来源的消息：会话开场的自动定锚、压缩/轮数重锚、以及你用 `/anchor` 定的锚。你亲手敲的、粘贴的任何文本都不算——**不需要任何内容比对**。
 
 **它会往远端发东西吗？**
-不会。插件不联网、不埋点；唯一写盘的是 `~/.dsh/settings.yaml` 里它自己的命名空间。
+不会。插件不联网、不埋点；唯一写盘的是它自己那份设置文档（0.1.6 线：`~/.dsh/settings.yaml` 的 `dsh-anchor` 段；0.1.7 线：当前 profile 配置文档里 id 为 `dsh-anchor` 的 entry）。
 
 **它负责什么范围？**
 只负责**指令**：本次会话里要一直生效的人设与纪律。不接管记忆、不做检索、不碰任何跨会话的数据，也不改变模型的任何能力。
@@ -159,7 +164,7 @@ graph TD
 ```sh
 pnpm install        # 依赖（prepare 会自动构建一次）
 pnpm typecheck      # tsc --noEmit（含 tests）
-pnpm test           # vitest：9 个 spec / 112 项
+pnpm test           # vitest：10 个 spec / 125 项
 pnpm build          # tsdown：lib/index.js（Host 半）与 lib/client.js（Client 半）
 pnpm check          # 三件套：typecheck + test + build
 ```
@@ -168,17 +173,17 @@ pnpm check          # 三件套：typecheck + test + build
 
 ```
 src/
-  index.ts                     Host 半：设置命名空间 + agent/pre-step 注入决策
+  index.ts                     Host 半：Config（= 0.1.7 的设置 schema）+ agent/pre-step 注入决策
   trigger.ts                   纯函数：从会话日志读注入历史、判定重锚触发（含 token 压力的已触发位）
   meter.ts                     读官方 token meter 的 contextPressure（ctx.sessionProjections）
   order.ts                     纯函数：列表移动与拖拽落点换算
   copy.ts                      两端共享的中英文案表 + {name} 插值
-  types/anchor-settings.ts     两端共享的设置契约（含容错解码与迁移）
+  types/anchor-settings.ts     两端共享的设置契约（含容错解码、命名空间与注入来源 kind）
   client/
-    index.ts                   注册 settings.section 与 settings.anchor 文案
+    index.ts                   注册 settings.section 与 settings.anchor 文案；取本插件的设置表单
     AnchorSettingsSection.tsx  设置页：预设库 / 分页器 / 注入顺序 / 重锚策略
     settings-controller.ts     按字段写、乐观更新的控制器
-tests/                         112 项单测（含真实 pre-step 监听器行为）
+tests/                         125 项单测（含真实 pre-step 监听器行为与 0.1.7 设置接线）
 ```
 
 **改动的生效范围**：Client 半刷新页面即生效（bundle 走 HTTP）；**Host 半需要重启 profile**（`lib/index.js` 只在启动时加载）。

@@ -4,6 +4,29 @@
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-09-25
+
+跨线适配 ⇒ minor：本版把插件移到 DeepSeek Harness **0.1.7-rc.2** 线（依赖与 peer 范围全部改为 `^0.1.7-rc.2`，并显式声明 `@deepseek-ai/schemastery ^3.18.4` —— 新的 `Config` 用到该版本才有的 `Schema.prototype.volatile()`）。旧线（0.1.2–0.1.6）不再受支持：`^0.1.7-rc.2` 的 peer 范围会挡住它，装上去也不会再注册设置节。
+
+### Changed
+
+- **设置改成「插件自己的 `Config` 即设置文档」**：0.1.7 把 `ctx.settings` 整个换成 `SettingsForms`，`installSection` 与 `register` 双双消失（调用即 `TypeError`，而 loader 把失败的 entry 当致命 ⇒ 整个 profile 起不来）。Host 半现在把设置 schema 作为 `Config` 导出，`ctx.settings.configure({ auto: false }, ctx.fiber)` 只登记**页面策略**（包在 `ctx.inject(['settings'], …)` 子上下文的 effect 里）；取值走 `config.<field>.get()`，读取是防御式的（访问器与普通值都接受，缺失字段回落到默认值），并且**不复核**已经过 loader 校验的值。`auto: false` 的理由是官方 README 写明的：`autoGenerate` 是给「从 schema 生成页面」的客户端用的，而**目前没有任何随发行版交付的客户端这么做**；本插件自带设置页，正是该注册 `auto: false` 的场景。
+- **每个设置字段都标记 `.volatile()`**：0.1.7 的引擎只把 volatile 字段投影成表单，没有 volatile 字段的 entry 会从 `describe()` 里直接消失，任何写入也被拒（`Plugin entry "…" has no volatile fields`）。那等于既没有设置页，退休的 `~/.dsh/settings.yaml` 段也导不进来。
+- **注入消息的 `source.kind` 改为本插件自己的 producer kind（`plugin:dsh-anchor`）**：0.1.7 的 `MessageSourceMap` 不再有 catch-all 的 `'plugin'`（按官方 d.ts：each producer declares its own `kind` … there is no shared catch-all `plugin` kind），session format V4 更是直接拒收 `kind: 'plugin'`。同时 V3→V4 迁移对不在它两张表里的 producer 走 `` `plugin:${plugin}` `` 兜底，即老会话里的 `{kind:'plugin',plugin:'dsh-anchor'}` 会被改写成 `plugin:dsh-anchor`——写入侧用同一个字符串，升级前后的注入在日志里就是同一个来源；读取侧两种形状都认，**老会话的重锚基线不会丢**。
+- **`cordis.patch.yml` 的 entry id 由 `anchor` 改为 `dsh-anchor`**：0.1.7 上「设置命名空间 = 配置树 entry id」，引擎按**同名 id** 把退休的 `settings.yaml` 导入 entry（section `dsh-anchor` → entry `dsh-anchor`）。id 与插件命名空间保持一致，公司开工锚预设才能随线迁移进来，设置文档也不会被悄悄改名。`tests/patch-manifest.spec.ts` 现在会在这个不变量被破坏时失败。
+- **Client 半改走 `ctx.configForms`**：0.1.7 删除了 `settingsScope` 服务（在 0.1.7-rc.2 的整棵安装树里 0 处引用），设置表单由其提供者按「entry id → 表单」共享。界面只认这个传输端口（`AnchorSettingsHost`：snapshot / subscribe / set / unset），因此设置页、控制器与组件都不需要知道表单从哪来；服务用 `ctx.get` 读取，不是必备依赖，没有它的 shell 只是不显示这一页。
+- Host 半不再把 `settings` 声明为必备服务（`inject: []`）：0.1.7 上它只是可选能力，声明成必备会让没有 settings 服务的 profile 直接起不来。
+
+### Added
+
+- `tests/settings-wiring.spec.ts`：覆盖此前**没有任何测试跑到**的 0.1.7 分支——`ctx.inject(['settings'], …)` 子上下文里以 effect 注册 `configure({ auto: false }, ctx.fiber)`、`ctx.get('settings')` 的读取路径、以及「同一个 `Config` 字段无论来自访问器还是普通值都得到同一份设置」这一 Host 半赖以成立的前提。
+- `tests/trigger.spec.ts` 新增 producer kind 用例：迁移后的来源被认作自己、迁移前后混在一条历史里仍取到首/末注入、以及其他 producer（如 `plugin:compact`）被拒。
+- `tests/patch-manifest.spec.ts` 新增两条不变量：`INJECTION_SOURCE_KIND === \`plugin:${NS}\``、peer 范围只收 0.1.7 线。
+
+### Fixed
+
+- **测试套件此前是「假绿」**：两个行为套件的桩给的是 `settings.installSection`，因此 0.1.7 的接线（`configure` + 访问器取值）一次都没被执行过。现在桩改成真实路径——`apply(ctx, config)` 收到的是逐字段访问器，`setSettings` 就是改这份运行中的配置。
+
 ## [0.11.0] — 2026-09-15
 
 ### Added

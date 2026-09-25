@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { apply, name as pluginName } from '../src/index.ts'
+import { isAnchorInjectionSource } from '../src/trigger.ts'
 import { DEFAULT_ANCHOR_SETTINGS, type AnchorSettings } from '../src/types/anchor-settings.ts'
 
 interface LogEvent {
@@ -82,18 +83,13 @@ function mount(options: MountOptions = {}): Harness {
   let current: AnchorSettings = { ...DEFAULT_ANCHOR_SETTINGS }
   let pressure: number | undefined
   let handler: Harness['handler'] | undefined
+  // The settings document is the Config the loader resolves and passes to
+  // `apply`: one live accessor per field, exactly the shape `Schema.resolve`
+  // produces, so `setSettings` below is an edit of the running configuration.
+  const config = Object.fromEntries(
+    Object.keys(DEFAULT_ANCHOR_SETTINGS).map((field) => [field, { get: () => (current as unknown as Record<string, unknown>)[field] }]),
+  )
   const ctx = {
-    settings: {
-      installSection: (
-        _ctx: unknown,
-        _ns: unknown,
-        _schema: unknown,
-        _defaults: unknown,
-        options: { setSource: (source: () => AnchorSettings) => void },
-      ) => {
-        options.setSource(() => current)
-      },
-    },
     logger: { warn: () => {} },
     inject: () => {},
     on: (event: string, listener: Harness['handler']) => {
@@ -106,7 +102,7 @@ function mount(options: MountOptions = {}): Harness {
       return { snapshot: () => ({ values: { contextPressure: options.projection } }) }
     },
   }
-  apply(ctx as unknown as Context, undefined, {
+  apply(ctx as unknown as Context, config, {
     readPressure: source === 'probe' ? () => pressure : undefined,
   })
   if (handler === undefined) throw new Error('agent/pre-step listener was not registered')
@@ -146,8 +142,10 @@ async function step(
 /** Text of the first injected message, or undefined when nothing was injected. */
 function injectedText(result: Decision): string | undefined {
   const first = result.messages[0]
-  const source = first?.source as { kind?: string; plugin?: string } | undefined
-  if (source?.plugin !== pluginName) return undefined
+  // Asked through the plugin's own predicate: what counts as "this plugin's
+  // injection" is exactly what the re-injection trigger reads back off the log,
+  // so a source the writer emits but the reader misses fails here as well.
+  if (!isAnchorInjectionSource(first?.source, pluginName)) return undefined
   const content = first?.content as { type?: string; text?: string }[] | undefined
   return content?.[0]?.text
 }

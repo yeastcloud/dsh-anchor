@@ -16,7 +16,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { apply, name as pluginName } from '../src/index.ts'
-import { DEFAULT_ANCHOR_SETTINGS, type AnchorSettings } from '../src/types/anchor-settings.ts'
+import { isAnchorInjectionSource } from '../src/trigger.ts'
+import { DEFAULT_ANCHOR_SETTINGS, INJECTION_SOURCE_KIND, type AnchorSettings } from '../src/types/anchor-settings.ts'
 
 interface CommandDefinition {
   name: string
@@ -88,19 +89,15 @@ function mount(
       nextStep = [...nextStep, message as Injection]
     },
   }
+  // The settings document is the Config the loader resolves and passes to
+  // `apply`: one live accessor per field, so `setSettings` edits the running
+  // configuration the way a settings-form write does.
+  const config = Object.fromEntries(
+    Object.keys(DEFAULT_ANCHOR_SETTINGS).map((field) => [field, { get: () => (current as unknown as Record<string, unknown>)[field] }]),
+  )
   const ctx = {
-    settings: {
-      installSection: (
-        _ctx: unknown,
-        _ns: unknown,
-        _schema: unknown,
-        _defaults: unknown,
-        options: { setSource: (source: () => AnchorSettings) => void },
-      ) => {
-        options.setSource(() => current)
-      },
-    },
     logger: { warn: () => {} },
+    get: () => undefined,
     on: (event: string, handler: unknown) => {
       if (event === 'agent/pre-step') preStep = handler as PreStepHandler
     },
@@ -111,7 +108,7 @@ function mount(
     },
   }
 
-  apply(ctx as unknown as Context, undefined, { env })
+  apply(ctx as unknown as Context, config, { env })
   return {
     command,
     description: command?.description,
@@ -139,7 +136,7 @@ const question = (text: string): Injection => ({ content: [{ type: 'text', text 
 /** Text of the first injected message in a pre-step result, or undefined. */
 function injectedText(result: { messages: Injection[] }): string | undefined {
   const first = result.messages[0]
-  if (first?.source?.plugin !== pluginName) return undefined
+  if (!isAnchorInjectionSource(first?.source, pluginName)) return undefined
   return first.content?.[0]?.text
 }
 const resultOf = (value: unknown): { kind: string; text?: string } => value as { kind: string; text?: string }
@@ -181,7 +178,11 @@ describe('/anchor', () => {
 
     const injected = await harness.step([question('继续说')], { turn: 3, step: 1 })
     expect(injectedText(injected)).toBe('乙\n\n甲')
-    expect(injected.messages[0]?.source?.plugin).toBe(pluginName)
+    // The source is this plugin's OWN producer kind, not the retired catch-all:
+    // session format V4 refuses `kind: 'plugin'`, so a message written with it
+    // would not survive as this plugin's injection.
+    expect(injected.messages[0]?.source).toEqual({ kind: INJECTION_SOURCE_KIND })
+    expect(isAnchorInjectionSource(injected.messages[0]?.source, pluginName)).toBe(true)
 
     // Claimed once: the following turn starts clean.
     expect(injectedText(await harness.step([question('再来')], { turn: 4, step: 1 }))).toBeUndefined()

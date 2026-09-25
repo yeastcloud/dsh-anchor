@@ -4,8 +4,10 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { AnchorSettingsController } from '../src/client/settings-controller.ts'
+import {
+  AnchorSettingsController,
+  type AnchorSettingsHost,
+} from '../src/client/settings-controller.ts'
 import {
   DEFAULT_ANCHOR_SETTINGS,
   FIELD_ANCHOR_SUBAGENTS,
@@ -37,8 +39,11 @@ function mount(initial: Partial<AnchorSettings> = {}): Harness {
   const value: AnchorSettings = { ...DEFAULT_ANCHOR_SETTINGS, selectedIds: ['a'], prompts: PROMPTS, ...initial }
   const sets: [string, unknown][] = []
   const unsets: string[] = []
-  const scope = {
-    getSnapshot: () => ({ status: 'ready', value, base: undefined, user: undefined, revision: 1, writable: true, mode: 'host' }),
+  // Exactly the shape both lines' transports expose: the 0.1.7 `ConfigForm`
+  // snapshot carries the extra `base`/`user`/`revision`/`mode` fields, the
+  // 0.1.6 scope does not — the controller reads neither.
+  const host: AnchorSettingsHost<AnchorSettings> = {
+    getSnapshot: () => ({ status: 'ready', value, writable: true }),
     subscribe: () => () => {},
     set: async (field: string, next: unknown) => {
       sets.push([field, next])
@@ -46,10 +51,9 @@ function mount(initial: Partial<AnchorSettings> = {}): Harness {
     unset: async (field: string) => {
       unsets.push(field)
     },
-    mutate: async () => {},
-  } as unknown as SettingsScope<AnchorSettings>
+  }
 
-  const controller = new AnchorSettingsController(scope)
+  const controller = new AnchorSettingsController(host)
   controller.attach()
   return { controller, sets, unsets, settle: async () => { await new Promise((resolve) => setTimeout(resolve, 0)) } }
 }

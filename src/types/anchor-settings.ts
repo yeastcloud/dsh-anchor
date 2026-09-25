@@ -9,6 +9,29 @@
  */
 
 export const NS = 'dsh-anchor'
+
+/**
+ * `source.kind` every injection this plugin appends carries.
+ *
+ * Session format V4 (the 0.1.7 line) refuses the retired catch-all `plugin` kind
+ * and demands a producer-owned one; its own V3→V4 migration rewrites a released
+ * `{ kind: 'plugin', plugin: 'dsh-anchor' }` source to exactly this string, so
+ * writing it here keeps the injections of an old session and of a new one
+ * indistinguishable in the log.
+ */
+export type AnchorInjectionSourceKind = 'plugin:dsh-anchor'
+
+/**
+ * The injection source kind as a value. Annotated with the literal type on
+ * purpose: the annotation proves `plugin:${NS}` is that literal, so the
+ * namespace, the profile entry id (`cordis.patch.yml`), and the declared
+ * producer kind cannot drift apart silently.
+ */
+export const INJECTION_SOURCE_KIND: AnchorInjectionSourceKind = `plugin:${NS}`
+
+/** The retired catch-all `source.kind`; only ever read, never written again. */
+export const RETIRED_PLUGIN_SOURCE_KIND = 'plugin'
+
 export const FIELD_ENABLED = 'enabled'
 export const FIELD_SELECTED_IDS = 'selectedIds'
 export const FIELD_PROMPTS = 'prompts'

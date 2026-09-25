@@ -41,7 +41,7 @@ You open a session with an instruction block: answer in Chinese, lead with the c
 | ⚓ **`/anchor` command** | Type `/anchor` to anchor the current combination into this session right away: the handler runs locally against the agent, so it **costs no tokens, opens no turn, and never extends a turn already running** (the anchor is held by the plugin and injected at the first step of your next message — it never enters the composer and never opens a turn). `/anchor status` reports without injecting. |
 | 🎛 **Self-drawn settings page** | Paged preset library, ordered injection list with drag/↑↓ reordering, and the re-anchor policy — all visual, no config file editing. |
 | 💾 **Presets import / export** | Export the whole library (with the current combination) as a JSON document carrying its own format marker and version — for another machine, a backup, or sharing. An import validates everything first and refuses the whole file with one named reason, so a bad file can never half-replace your library. |
-| 🔒 **Local only** | No network, no telemetry. Its whole state lives in your own `~/.dsh/settings.yaml`. |
+| 🔒 **Local only** | No network, no telemetry. Its whole state stays on your machine: the `dsh-anchor` section of `~/.dsh/settings.yaml` on the 0.1.6 line, the active profile's configuration document (entry id `dsh-anchor`) from 0.1.7 on. |
 
 ## Install
 
@@ -55,7 +55,9 @@ dsh web
 
 Then open **Settings → 定锚 (Anchor)**, add a few presets, check them, drag them into the order you want, and start a new session.
 
-**Requirements**: Node `^22.19 || >=24`; DeepSeek Harness 0.1.5 line (verified from `0.1.5-rc.2`). The plugin ships a host half (injection logic) and a client half (settings page).
+**Requirements**: Node `^22.19 || >=24`; the DeepSeek Harness **0.1.7-rc.2 line** (that is what the dependency and peer ranges name). The plugin ships a host half (injection logic) and a client half (settings page).
+
+**Where the settings live**: on 0.1.6 the host half registered a section with `ctx.settings.installSection` and the document was `~/.dsh/settings.yaml`. That API is gone from 0.1.7, where the form is generated from the plugin's own `Config` schema and the values follow the active profile's configuration document — under an entry id equal to the plugin namespace (`dsh-anchor`), which is also what lets the platform's one-shot import of the retired section land on this plugin.
 
 **Language**: the settings page and its left-nav entry follow the DSH language setting (中文 / English); `/anchor` output follows the host process's `LC_ALL` / `LANG` (a tag whose first segment is `en` — `en`, `en_US.UTF-8` — reads English, anything else Chinese).
 
@@ -82,7 +84,7 @@ Every refusal path reports an error instead of injecting something approximate: 
 
 ## Configuration
 
-Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/settings.yaml`:
+Edit in **Settings → 定锚**, or in the settings document itself: the `dsh-anchor` section of `~/.dsh/settings.yaml` on the 0.1.6 line, or the entry with id `dsh-anchor` in the active profile's configuration document (`dsh config` / the profile's `cordis.patch.yml`) from 0.1.7 on:
 
 | Field | Default | Meaning |
 | --- | --- | --- |
@@ -109,7 +111,7 @@ Edit in **Settings → 定锚**, or in the `dsh-anchor` section of `~/.dsh/setti
 
 **What counts as an injection?** Only messages this plugin sourced itself: the opening anchor, a compaction or turn-interval re-anchor, and an anchor you placed with `/anchor`. Text you type or paste never counts, and no content comparison is involved.
 
-**Does it send anything anywhere?** No. It never touches the network; the only file it writes is its own namespace in `~/.dsh/settings.yaml`.
+**Does it send anything anywhere?** No. It never touches the network; the only thing it writes is its own settings document (the `dsh-anchor` section of `~/.dsh/settings.yaml` on the 0.1.6 line, the `dsh-anchor` entry of the active profile's configuration document from 0.1.7 on).
 
 ## Roadmap
 
@@ -128,7 +130,7 @@ No planned items remain.
 
 ```sh
 pnpm install     # dependencies (prepare builds once)
-pnpm check       # typecheck + 112 tests + build
+pnpm check       # typecheck + 125 tests + build
 pnpm build       # lib/index.js (host) and lib/client.js (client)
 ```
 

@@ -1,4 +1,12 @@
 # @yeastcloud/dsh-anchor bundle patch: self-inject into the web plugin roster.
+#
+# `id` is the entry's stable identity in the configuration tree, and on the
+# 0.1.7 line it is ALSO the plugin's settings namespace: the settings engine
+# keys a form by `entry.options.id`, the browser half reads that key, and a
+# retired `settings.yaml` is imported into "the entry of the same id". Keeping it
+# equal to the plugin namespace (`dsh-anchor`) is what keeps this plugin attached
+# to the settings document it has always owned instead of silently renaming it —
+# see tests/patch-manifest.spec.ts, which fails if the two ever drift apart.
 - insert:
-    - id: anchor
+    - id: dsh-anchor
       name: '@yeastcloud/dsh-anchor'

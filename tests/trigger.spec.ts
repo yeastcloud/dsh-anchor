@@ -6,21 +6,43 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  isAnchorInjectionSource,
   isDelegatedSession,
   pressureStep,
   readInjectionHistory,
   reinjectionReason,
   type AnchorLogEvent,
 } from '../src/trigger.ts'
+import { INJECTION_SOURCE_KIND } from '../src/types/anchor-settings.ts'
 
 const NS = 'dsh-anchor'
 
-/** One message this plugin injected. */
+/**
+ * One message this plugin injected BEFORE the line change: the retired
+ * catch-all source every producer used on the 0.1.6 line.
+ */
 function ours(text: string, seq: number): AnchorLogEvent {
   return {
     type: 'user/message',
     seq,
     data: { content: [{ type: 'text', text }], source: { kind: 'plugin', plugin: NS } },
+  }
+}
+
+/**
+ * The same injection as session format V4 sees it.
+ *
+ * `dsh-session-format-v3-to-v4` rewrites a released
+ * `{ kind: 'plugin', plugin: 'dsh-anchor' }` through `producerKind`, which falls
+ * back to `` `plugin:${plugin}` `` for a producer in neither of its tables — so
+ * this is literally the shape an upgraded session's history has, and the shape
+ * the plugin writes from now on.
+ */
+function migrated(text: string, seq: number): AnchorLogEvent {
+  return {
+    type: 'user/message',
+    seq,
+    data: { content: [{ type: 'text', text }], source: { kind: INJECTION_SOURCE_KIND } },
   }
 }
 
@@ -81,6 +103,26 @@ describe('isDelegatedSession', () => {
   })
 })
 
+describe('isAnchorInjectionSource', () => {
+  it('accepts both source shapes this plugin has ever written', () => {
+    expect(isAnchorInjectionSource({ kind: INJECTION_SOURCE_KIND }, NS)).toBe(true)
+    expect(isAnchorInjectionSource({ kind: 'plugin', plugin: NS }, NS)).toBe(true)
+  })
+
+  it('rejects another producer, whatever shape it uses', () => {
+    expect(isAnchorInjectionSource({ kind: 'plugin:compact' }, NS)).toBe(false)
+    expect(isAnchorInjectionSource({ kind: 'plugin', plugin: 'compact' }, NS)).toBe(false)
+    expect(isAnchorInjectionSource({ kind: 'user' }, NS)).toBe(false)
+    expect(isAnchorInjectionSource(undefined, NS)).toBe(false)
+    expect(isAnchorInjectionSource('dsh-anchor', NS)).toBe(false)
+  })
+
+  it('keeps the plugin parameter meaningful', () => {
+    expect(isAnchorInjectionSource({ kind: 'plugin:other' }, 'other')).toBe(true)
+    expect(isAnchorInjectionSource({ kind: INJECTION_SOURCE_KIND }, 'other')).toBe(false)
+  })
+})
+
 describe('readInjectionHistory', () => {
   it('reports nothing for a session that was never injected', () => {
     const history = readInjectionHistory([human('你好', 0), turnStart(1)], NS)
@@ -108,6 +150,22 @@ describe('readInjectionHistory', () => {
     expect(history.first?.text).toBe('锚文')
     expect(history.lastInjectionSeq).toBe(0)
     expect(history.compactedAfterLastInjection).toBe(true)
+  })
+
+  it('reads a post-migration injection as its own', () => {
+    // The line change rewrites every stored injection's source; a session that
+    // crossed it must keep its baseline, or the anchor would silently stop
+    // re-anchoring that conversation.
+    const history = readInjectionHistory([migrated('开工锚', 0), turnStart(1), turnStart(2)], NS)
+    expect(history.first?.text).toBe('开工锚')
+    expect(history.lastInjectionSeq).toBe(0)
+    expect(history.turnsSinceLastInjection).toBe(2)
+  })
+
+  it('mixes pre- and post-migration injections in one history', () => {
+    const history = readInjectionHistory([ours('原始锚文', 0), turnStart(1), migrated('原始锚文', 2)], NS)
+    expect(history.first?.seq).toBe(0)
+    expect(history.latest?.seq).toBe(2)
   })
 
   it('sees a summarizing compaction that landed after the injection', () => {
